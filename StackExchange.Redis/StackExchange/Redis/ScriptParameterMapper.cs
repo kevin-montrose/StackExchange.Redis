@@ -12,19 +12,24 @@ namespace StackExchange.Redis.StackExchange.Redis
 {
     class ScriptParameterMapper
     {
-        public class PreparedScript
+        public class ExecutableScript
         {
-            public string Script { get; private set; }
-            public string ScriptSHA1 { get; set; }
+            public string OriginalScript { get; private set; }
+            public string OriginalSHA1 { get; private set; }
+
+            public string PreparedScript { get; private set; }
+            public string PreparedSHA1 { get; set; }
 
             public RedisKey[] Keys { get; private set; }
             public RedisValue[] Arguments { get; private set; }
 
-            public static readonly ConstructorInfo Cons = typeof(PreparedScript).GetConstructor(new[] { typeof(string), typeof(string), typeof(RedisKey[]), typeof(RedisValue[]) });
-            public PreparedScript(string script, string sha1, RedisKey[] keys, RedisValue[] args)
+            public static readonly ConstructorInfo Cons = typeof(ExecutableScript).GetConstructor(new[] { typeof(string), typeof(string), typeof(string), typeof(string), typeof(RedisKey[]), typeof(RedisValue[]) });
+            public ExecutableScript(string origScript, string origSha1, string prepScript, string prepSha1, RedisKey[] keys, RedisValue[] args)
             {
-                Script = script;
-                ScriptSHA1 = sha1;
+                OriginalScript = origScript;
+                OriginalSHA1 = origSha1;
+                PreparedScript = prepScript;
+                PreparedSHA1 = prepSha1;
                 Keys = keys;
                 Arguments = args;
             }
@@ -76,7 +81,7 @@ namespace StackExchange.Redis.StackExchange.Redis
             }
         }
 
-        static void MakeOrdinalScript(string rawScript, Dictionary<string, MemberInfo> keys, Dictionary<string, MemberInfo> args, out string finalScript, out string sha1, out List<MemberInfo> keyMembersInOrder, out List<MemberInfo> argMembersInOrder)
+        static void MakeOrdinalScript(string rawScript, Dictionary<string, MemberInfo> keys, Dictionary<string, MemberInfo> args, out string rawScriptSha1, out string finalScript, out string finalSha1, out List<MemberInfo> keyMembersInOrder, out List<MemberInfo> argMembersInOrder)
         {
             var ps = ParameterExtractor.Matches(rawScript);
 
@@ -120,11 +125,15 @@ namespace StackExchange.Redis.StackExchange.Redis
 
             using (var hasher = SHA1.Create())
             {
-                var bytes = Encoding.UTF8.GetBytes(finalScript);
-                var hash = hasher.ComputeHash(bytes);
+                var rawBytes = Encoding.UTF8.GetBytes(rawScript);
+                var rawHash = hasher.ComputeHash(rawBytes);
+
+                var finalBytes = Encoding.UTF8.GetBytes(finalScript);
+                var finalHash = hasher.ComputeHash(finalBytes);
 
                 // TODO: A little less garbage here would be nice
-                sha1 = string.Join("", hash.Select(b => b.ToString("x2")));
+                rawScriptSha1 = string.Join("", rawHash.Select(b => b.ToString("x2")));
+                finalSha1 = string.Join("", finalHash.Select(b => b.ToString("x2")));
             }
         }
 
@@ -162,37 +171,37 @@ namespace StackExchange.Redis.StackExchange.Redis
         static void LoadKeys(LocalBuilder loc, ILGenerator il, List<MemberInfo> keysInOrder)
         {
             // stack starts:
-            // string string
+            // --empty--
 
             var numKeys = keysInOrder.Count;
             var tRedisKey = typeof(RedisKey);
 
-            il.Emit(OpCodes.Ldc_I4, numKeys);           // string string int
-            il.Emit(OpCodes.Newarr, tRedisKey);         // string string RedisKey[]
+            il.Emit(OpCodes.Ldc_I4, numKeys);           // int
+            il.Emit(OpCodes.Newarr, tRedisKey);         // RedisKey[]
 
             for (var i = 0; i < numKeys; i++)
             {
                 var member = keysInOrder[i];
 
-                il.Emit(OpCodes.Dup);                   // string string RedisKey[] RedisKey[]
-                il.Emit(OpCodes.Ldc_I4, i);             // string string RedisKey[] RedisKey[] int
+                il.Emit(OpCodes.Dup);                   // RedisKey[] RedisKey[]
+                il.Emit(OpCodes.Ldc_I4, i);             // RedisKey[] RedisKey[] int
                 if (loc.LocalType.IsValueType)
                 {
-                    il.Emit(OpCodes.Ldloca, loc);       // string string RedisKey[] RedisKey[] int T*
+                    il.Emit(OpCodes.Ldloca, loc);       // RedisKey[] RedisKey[] int T*
                 }
                 else
                 {
-                    il.Emit(OpCodes.Ldloc, loc);        // string string RedisKey[] RedisKey[] int T
+                    il.Emit(OpCodes.Ldloc, loc);        // RedisKey[] RedisKey[] int T
                 }
 
                 // because keys *must* be of type RedisKey, we don't have to do any conversions
-                LoadMember(il, member);                 // string string RedisKey[] RedisKey[] int RedisKey
+                LoadMember(il, member);                 // RedisKey[] RedisKey[] int RedisKey
 
-                il.Emit(OpCodes.Stelem, tRedisKey);     // string string RedisKey[]
+                il.Emit(OpCodes.Stelem, tRedisKey);     // RedisKey[]
             }
 
             // stack end:
-            // string string RedisKey[]
+            // RedisKey[]
         }
 
         static readonly MethodInfo RedisValue_FromInt = typeof(RedisValue).GetMethod("op_Implicit", new[] { typeof(int) });
@@ -245,38 +254,38 @@ namespace StackExchange.Redis.StackExchange.Redis
         static void LoadArguments(LocalBuilder loc, ILGenerator il, List<MemberInfo> argsInOrder)
         {
             // stack starts:
-            // string string RedisKey[]
+            // --empty--
 
             var numArgs = argsInOrder.Count;
             var tRedisVal = typeof(RedisValue);
 
-            il.Emit(OpCodes.Ldc_I4, numArgs);           // string string RedisKey[] int
-            il.Emit(OpCodes.Newarr, tRedisVal);         // string string RedisKey[] RedisValue[]
+            il.Emit(OpCodes.Ldc_I4, numArgs);           // RedisKey[] int
+            il.Emit(OpCodes.Newarr, tRedisVal);         // RedisKey[] RedisValue[]
 
             for (var i = 0; i < numArgs; i++)
             {
                 var member = argsInOrder[i];
 
-                il.Emit(OpCodes.Dup);                   // string string RedisKey[] RedisValue[] RedisValue[]
-                il.Emit(OpCodes.Ldc_I4, i);             // string string RedisKey[] RedisValue[] RedisValue[] int
+                il.Emit(OpCodes.Dup);                   // RedisKey[] RedisValue[] RedisValue[]
+                il.Emit(OpCodes.Ldc_I4, i);             // RedisKey[] RedisValue[] RedisValue[] int
 
                 if (loc.LocalType.IsValueType)
                 {
-                    il.Emit(OpCodes.Ldloca, loc);       // string string RedisKey[] RedisValue[] RedisValue[] int T*
+                    il.Emit(OpCodes.Ldloca, loc);       // RedisKey[] RedisValue[] RedisValue[] int T*
                 }
                 else
                 {
-                    il.Emit(OpCodes.Ldloc, loc);        // string string RedisKey[] RedisValue[] RedisValue[] int T
+                    il.Emit(OpCodes.Ldloc, loc);        // RedisKey[] RedisValue[] RedisValue[] int T
                 }
 
-                LoadMember(il, member);                 // string string RedisKey[] RedisValue[] RedisValue[] int typeof(member)
-                ConvertToRedisValue(member, il);        // string string RedisKey[] RedisValue[] RedisValue[] int RedisValue
+                LoadMember(il, member);                 // RedisKey[] RedisValue[] RedisValue[] int typeof(member)
+                ConvertToRedisValue(member, il);        // RedisKey[] RedisValue[] RedisValue[] int RedisValue
 
-                il.Emit(OpCodes.Stelem, tRedisVal);     // string string RedisKey[] RedisValue[]
+                il.Emit(OpCodes.Stelem, tRedisVal);     // RedisKey[] RedisValue[]
             }
 
             // stack end:
-            // string string RedisKey[] RedisValue[]
+            // RedisValue[]
         }
 
         /// <summary>
@@ -286,33 +295,35 @@ namespace StackExchange.Redis.StackExchange.Redis
         /// RedisKey members on T are considered keys for the purposes of Eval calls, all other members are considered
         /// arguments.
         /// </summary>
-        public static Func<T, PreparedScript> MapScript<T>(string script)
+        public static Func<T, ExecutableScript> MapScript<T>(string script)
         {
             var t = typeof(T);
             Dictionary<string, MemberInfo> keys, args;
             ExtractKeysAndArguments(t, script, out keys, out args);
 
-            string finalScript, sha1;
+            string scriptSha1, finalScript, finalSha1;
             List<MemberInfo> keysInOrder, argsInOrder;
-            MakeOrdinalScript(script, keys, args, out finalScript, out sha1, out keysInOrder, out argsInOrder);
+            MakeOrdinalScript(script, keys, args, out scriptSha1, out finalScript, out finalSha1, out keysInOrder, out argsInOrder);
 
-            var dyn = new DynamicMethod("MapScript_" + t.FullName + "_" + script.GetHashCode(), typeof(PreparedScript), new[] { t }, restrictedSkipVisibility: true);
+            var dyn = new DynamicMethod("MapScript_" + t.FullName + "_" + script.GetHashCode(), typeof(ExecutableScript), new[] { t }, restrictedSkipVisibility: true);
             var il = dyn.GetILGenerator();
 
             var loc = il.DeclareLocal(t);
             il.Emit(OpCodes.Ldarg_0);                       // typeof(T)
             il.Emit(OpCodes.Stloc, loc);                    // --empty--
 
-            il.Emit(OpCodes.Ldstr, finalScript);            // string
-            il.Emit(OpCodes.Ldstr, sha1);                   // string string
-            
-            LoadKeys(loc, il, keysInOrder);                 // string string RedisKey[]
-            LoadArguments(loc, il, argsInOrder);            // string string RedisKey[] RedisValue[]
+            il.Emit(OpCodes.Ldstr, script);                 // string
+            il.Emit(OpCodes.Ldstr, scriptSha1);             // string string
+            il.Emit(OpCodes.Ldstr, finalScript);            // string string string
+            il.Emit(OpCodes.Ldstr, finalSha1);              // string string string string
 
-            il.Emit(OpCodes.Newobj, PreparedScript.Cons);   // PreparedScript
+            LoadKeys(loc, il, keysInOrder);                 // string string string string RedisKey[]
+            LoadArguments(loc, il, argsInOrder);            // string string string string RedisKey[] RedisValue[]
+
+            il.Emit(OpCodes.Newobj, ExecutableScript.Cons); // ExecutableScript
             il.Emit(OpCodes.Ret);                           // --empty--
 
-            var ret = (Func<T, PreparedScript>)dyn.CreateDelegate(typeof(Func<T, PreparedScript>));
+            var ret = (Func<T, ExecutableScript>)dyn.CreateDelegate(typeof(Func<T, ExecutableScript>));
 
             return ret;
         }
