@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
@@ -875,14 +876,52 @@ namespace StackExchange.Redis
             return ExecuteSync(msg, ResultProcessor.ScriptResult);
         }
 
+        Hashtable ScriptMappers = new Hashtable();
+        internal Func<T, StackExchange.Redis.ScriptParameterMapper.ExecutableScript> GetOrCreateScriptMapper<T>(string script)
+        {
+            var key = Tuple.Create(script, typeof(T));
+            var mapper = (Func<T, StackExchange.Redis.ScriptParameterMapper.ExecutableScript>)ScriptMappers[key];
+            if (mapper == null)
+            {
+                lock (ScriptMappers)
+                {
+                    mapper = (Func<T, StackExchange.Redis.ScriptParameterMapper.ExecutableScript>)ScriptMappers[key];
+                    if (mapper == null)
+                    {
+                        ScriptMappers[key] = mapper = StackExchange.Redis.ScriptParameterMapper.MapScript<T>(script);
+                    }
+                }
+            }
+
+            return mapper;
+        }
+
+        public RedisResult ScriptEvaluateWithParameters<T>(string script, T parameters, CommandFlags flags = CommandFlags.None)
+        {
+            var mapper = GetOrCreateScriptMapper<T>(script);
+            var readyToExecute = mapper(parameters);
+
+            return ScriptEvaluate(readyToExecute.PreparedScript, readyToExecute.Keys, readyToExecute.Arguments, flags);
+        }
+
         public Task<RedisResult> ScriptEvaluateAsync(string script, RedisKey[] keys = null, RedisValue[] values = null, CommandFlags flags = CommandFlags.None)
         {
             var msg = new ScriptEvalMessage(Db, flags, script, keys, values);
             return ExecuteAsync(msg, ResultProcessor.ScriptResult);
         }
+
         public Task<RedisResult> ScriptEvaluateAsync(byte[] hash, RedisKey[] keys = null, RedisValue[] values = null, CommandFlags flags = CommandFlags.None)
         {
             var msg = new ScriptEvalMessage(Db, flags, hash, keys, values);
+            return ExecuteAsync(msg, ResultProcessor.ScriptResult);
+        }
+
+        public Task<RedisResult> ScriptEvaluateWithParametersAsync<T>(string script, T parameters, CommandFlags flags = CommandFlags.None)
+        {
+            var mapper = GetOrCreateScriptMapper<T>(script);
+            var readyToExecute = mapper(parameters);
+
+            var msg = new ScriptEvalMessage(Db, flags, readyToExecute.PreparedScript, readyToExecute.Keys, readyToExecute.Arguments);
             return ExecuteAsync(msg, ResultProcessor.ScriptResult);
         }
 
