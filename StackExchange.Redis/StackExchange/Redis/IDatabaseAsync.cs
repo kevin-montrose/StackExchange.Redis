@@ -438,20 +438,7 @@ namespace StackExchange.Redis
         /// <remarks>http://redis.io/commands/evalsha</remarks>
         /// <returns>A dynamic representation of the script's result</returns>
         Task<RedisResult> ScriptEvaluateAsync(byte[] hash, RedisKey[] keys = null, RedisValue[] values = null, CommandFlags flags = CommandFlags.None);
-
-        /// <summary>
-        /// Execute a lua script against the server.  Named parameters of the form `@myParameter` are extracted and
-        /// replaced before the script is sent to Redis.
-        /// 
-        /// Parameters values are determined by the `parameters` object passed in.
-        /// 
-        /// Members of type `RedisKey` are passed to redis as KEYS, all other members are converted
-        /// to `RedisValue`s and passed as ARGUMENTS.
-        /// </summary>
-        /// /// <remarks>http://redis.io/commands/eval, http://redis.io/commands/evalsha</remarks>
-        /// <returns>A dynamic representation of the script's result</returns>
-        Task<RedisResult> ScriptEvaluateWithParametersAsync<T>(string script, T parameters, CommandFlags flags = CommandFlags.None);
-
+        
         /// <summary>
         /// Add the specified member to the set stored at key. Specified members that are already a member of this set are ignored. If key does not exist, a new set is created before adding the specified members.
         /// </summary>

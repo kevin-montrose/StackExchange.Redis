@@ -1850,7 +1850,15 @@ namespace StackExchange.Redis
             if (channel == null) return CompletedTask<long>.Default(null);
 
             return GetSubscriber().PublishAsync(channel, RedisLiterals.Wildcard, flags);
-        }        
-    }   
+        }
 
+        /// <summary>
+        /// Prepares a script with @namedParameters to be executed against a IDatabase or IDatabaseAsync
+        /// object.
+        /// </summary>
+        public StackExchange.Redis.PreparedScript PrepareScript(string script)
+        {
+            return StackExchange.Redis.ScriptParameterMapper.PrepareScript(script);
+        }
+    }   
 }
