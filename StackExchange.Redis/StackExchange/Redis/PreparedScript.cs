@@ -119,9 +119,17 @@ namespace StackExchange.Redis.StackExchange.Redis
         /// <summary>
         /// Loads this PreparedScript into the given IServer so it can be run with it's SHA1 hash, instead of
         /// passing the full script on each Evaluate or EvaluateAsync call.
+        /// 
+        /// Note: the FireAndForget command flag cannot be set
         /// </summary>
         public LoadedPreparedScript ScriptLoad(IServer server, CommandFlags flags = CommandFlags.None)
         {
+            if (flags.HasFlag(CommandFlags.FireAndForget))
+            {
+                // TODO: Better exceptions
+                throw new Exception("Loading a script cannot be FireAndForget");
+            }
+
             var hash = server.ScriptLoad(ExecutableScript, flags);
 
             return new LoadedPreparedScript(this, hash);
@@ -130,9 +138,17 @@ namespace StackExchange.Redis.StackExchange.Redis
         /// <summary>
         /// Loads this PreparedScript into the given IServer so it can be run with it's SHA1 hash, instead of
         /// passing the full script on each Evaluate or EvaluateAsync call.
+        /// 
+        /// Note: the FireAndForget command flag cannot be set
         /// </summary>
         public async Task<LoadedPreparedScript> ScriptLoadAsync(IServer server, CommandFlags flags = CommandFlags.None)
         {
+            if (flags.HasFlag(CommandFlags.FireAndForget))
+            {
+                // TODO: Better exceptions
+                throw new Exception("Loading a script cannot be FireAndForget");
+            }
+
             var hash = await server.ScriptLoadAsync(ExecutableScript, flags);
 
             return new LoadedPreparedScript(this, hash);
