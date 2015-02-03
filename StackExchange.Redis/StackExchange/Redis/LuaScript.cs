@@ -69,8 +69,7 @@ namespace StackExchange.Redis
         {
             if (HasArguments)
             {
-                // TODO: better exception
-                if (ps == null) throw new Exception("Script requires parameters");
+                if (ps == null) throw new ArgumentNullException("ps", "Script requires parameters");
 
                 var psType = ps.GetType();
                 var mapper = (Func<object, ScriptParameterMapper.ScriptParameters>)ParameterMappers[psType];
@@ -81,6 +80,12 @@ namespace StackExchange.Redis
                         mapper = (Func<object, ScriptParameterMapper.ScriptParameters>)ParameterMappers[psType];
                         if (mapper == null)
                         {
+                            string missingMember;
+                            if(!ScriptParameterMapper.IsValidParameterHash(psType, this, out missingMember))
+                            {
+                                throw new ArgumentException("ps", "Expected [" + missingMember + "] to be a field or gettable property on [" + psType.FullName + "]");
+                            }
+
                             ParameterMappers[psType] = mapper = ScriptParameterMapper.GetParameterExtractor(psType, this);
                         }
                     }
@@ -131,8 +136,7 @@ namespace StackExchange.Redis
         {
             if (flags.HasFlag(CommandFlags.FireAndForget))
             {
-                // TODO: Better exceptions
-                throw new Exception("Loading a script cannot be FireAndForget");
+                throw new ArgumentOutOfRangeException("flags", "Loading a script cannot be FireAndForget");
             }
 
             var hash = server.ScriptLoad(ExecutableScript, flags);
@@ -150,8 +154,7 @@ namespace StackExchange.Redis
         {
             if (flags.HasFlag(CommandFlags.FireAndForget))
             {
-                // TODO: Better exceptions
-                throw new Exception("Loading a script cannot be FireAndForget");
+                throw new ArgumentOutOfRangeException("flags", "Loading a script cannot be FireAndForget");
             }
 
             var hash = await server.ScriptLoadAsync(ExecutableScript, flags);

@@ -176,6 +176,23 @@ namespace StackExchange.Redis
             return new LuaScript(script, ordinalScript, ps);
         }
 
+        public static bool IsValidParameterHash(Type t, LuaScript script, out string missingMember)
+        {
+            for (var i = 0; i < script.Arguments.Length; i++)
+            {
+                var argName = script.Arguments[i];
+                var member = t.GetMember(argName).Where(m => m is PropertyInfo || m is FieldInfo).SingleOrDefault();
+                if (member == null)
+                {
+                    missingMember = argName;
+                    return false;
+                }
+            }
+
+            missingMember = null;
+            return true;
+        }
+
         /// <summary>
         /// Creates a Func that extracts parameters from the given type for use by a PreparedScript.
         /// 
@@ -194,10 +211,6 @@ namespace StackExchange.Redis
             {
                 var argName = script.Arguments[i];
                 var member = t.GetMember(argName).Where(m => m is PropertyInfo || m is FieldInfo).SingleOrDefault();
-                
-                // TODO: better exception
-                if (member == null)
-                    throw new Exception("Expected property or field on " + t.FullName + " with name " + argName);
 
                 var memberType = member is FieldInfo ? ((FieldInfo)member).FieldType : ((PropertyInfo)member).PropertyType;
 
