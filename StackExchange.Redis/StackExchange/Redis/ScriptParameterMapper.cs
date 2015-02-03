@@ -8,7 +8,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
-namespace StackExchange.Redis.StackExchange.Redis
+namespace StackExchange.Redis
 {
     class ScriptParameterMapper
     {
@@ -64,7 +64,7 @@ namespace StackExchange.Redis.StackExchange.Redis
                 if (argIx != -1)
                 {
                     ret.Append("ARGV[");
-                    ret.Append(argIx);
+                    ret.Append(argIx + 1);
                     ret.Append("]");
                 }
 

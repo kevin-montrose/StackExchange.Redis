@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace StackExchange.Redis.StackExchange.Redis
+namespace StackExchange.Redis
 {
     /// <summary>
     /// Represents a Lua script that can be executed on Redis.
