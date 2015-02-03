@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -20,6 +21,8 @@ namespace StackExchange.Redis.StackExchange.Redis
     /// </summary>
     public sealed class PreparedScript
     {
+        static readonly ConcurrentDictionary<string, PreparedScript> Cache = new ConcurrentDictionary<string, PreparedScript>();
+
         /// <summary>
         /// The original script that was used to create this PreparedScript.
         /// </summary>
@@ -46,6 +49,14 @@ namespace StackExchange.Redis.StackExchange.Redis
             {
                 ParameterMappers = new Hashtable();
             }
+        }
+
+        /// <summary>
+        /// Prepares a Lua script with named parameters to be run against any Redis instance.
+        /// </summary>
+        public static PreparedScript Prepare(string script)
+        {
+            return Cache.GetOrAdd(script, _ => ScriptParameterMapper.PrepareScript(script));
         }
 
         void ExtractParameters(object ps, out RedisKey[] keys, out RedisValue[] args)

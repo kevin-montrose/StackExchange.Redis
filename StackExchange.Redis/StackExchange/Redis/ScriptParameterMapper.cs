@@ -46,7 +46,8 @@ namespace StackExchange.Redis.StackExchange.Redis
         static string MakeOrdinalScriptWithoutKeys(string rawScript, string[] args)
         {
             var ps = ParameterExtractor.Matches(rawScript);
-            
+            if (ps.Count == 0) return rawScript;
+
             var ret = new StringBuilder();
             var upTo = 0;
 
