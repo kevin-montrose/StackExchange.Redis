@@ -11,8 +11,8 @@ namespace StackExchange.Redis.StackExchange.Redis
     /// <summary>
     /// Represents a Lua script that can be executed on Redis.
     /// 
-    /// Unlike Redis itself, PreparedScripts can have named parameters (prefixed by a @).
-    /// Parameters are passed in as objects, where public fields and properties are treated as parameters.
+    /// Unlike normal Redis Lua scripts, PreparedScripts can have named parameters (prefixed by a @).
+    /// Public fields and properties of the passed in object are treated as parameters.
     /// 
     /// Parameters of type RedisKey are sent to Redis as KEY (http://redis.io/commands/eval) in addition to arguments, 
     /// so as to play nicely with Redis Cluster.
