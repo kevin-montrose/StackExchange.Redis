@@ -205,7 +205,8 @@ namespace StackExchange.Redis
         /// </summary>
         public byte[] Hash { get; private set; }
 
-        LuaScript Original;
+        // internal for testing purposes only
+        internal LuaScript Original;
 
         internal LoadedLuaScript(LuaScript original, byte[] hash)
         {

@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using NUnit.Framework;
 using System.Linq;
+using System.IO;
 
 namespace StackExchange.Redis.Tests
 {
@@ -218,6 +219,38 @@ namespace StackExchange.Redis.Tests
         }
 
         [Test]
+        public void LuaScriptWithKeys()
+        {
+            const string Script = "redis.call('set', @key, @value)";
+
+            var log = new StringWriter();
+            using (var conn = Create(allowAdmin: true))
+            {
+                var server = conn.GetServer(PrimaryServer, PrimaryPort);
+                server.FlushAllDatabases();
+                server.ScriptFlush();
+
+                var script = LuaScript.Prepare(Script);
+
+                var db = conn.GetDatabase();
+
+                var p = new { key = (RedisKey)"testkey", value = 123 };
+
+                script.Evaluate(db, p);
+                var val = db.StringGet("testkey");
+                Assert.AreEqual(123, (int)val);
+
+                // no super clean way to extract this; so just abuse InternalsVisibleTo
+                RedisKey[] keys;
+                RedisValue[] args;
+                script.ExtractParameters(p, out keys, out args);
+                Assert.IsNotNull(keys);
+                Assert.AreEqual(1, keys.Length);
+                Assert.AreEqual("testkey", (string)keys[0]);
+            }
+        }
+
+        [Test]
         public void SimpleLoadedLuaScript()
         {
             const string Script = "return @ident";
@@ -262,6 +295,39 @@ namespace StackExchange.Redis.Tests
                     var val = loaded.Evaluate(db, new { ident = new byte[] { 4, 5, 6 } });
                     Assert.IsTrue(new byte[] { 4, 5, 6 }.SequenceEqual((byte[])val));
                 }
+            }
+        }
+
+        [Test]
+        public void LoadedLuaScriptWithKeys()
+        {
+            const string Script = "redis.call('set', @key, @value)";
+
+            var log = new StringWriter();
+            using (var conn = Create(allowAdmin: true))
+            {
+                var server = conn.GetServer(PrimaryServer, PrimaryPort);
+                server.FlushAllDatabases();
+                server.ScriptFlush();
+
+                var script = LuaScript.Prepare(Script);
+                var prepared = script.ScriptLoad(server);
+
+                var db = conn.GetDatabase();
+
+                var p = new { key = (RedisKey)"testkey", value = 123 };
+
+                prepared.Evaluate(db, p);
+                var val = db.StringGet("testkey");
+                Assert.AreEqual(123, (int)val);
+
+                // no super clean way to extract this; so just abuse InternalsVisibleTo
+                RedisKey[] keys;
+                RedisValue[] args;
+                prepared.Original.ExtractParameters(p, out keys, out args);
+                Assert.IsNotNull(keys);
+                Assert.AreEqual(1, keys.Length);
+                Assert.AreEqual("testkey", (string)keys[0]);
             }
         }
     }
