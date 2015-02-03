@@ -151,13 +151,7 @@ namespace StackExchange.Redis
             if (t == typeof(byte[])) convertOp = RedisValue_FromByteArray;
             if (t == typeof(bool)) convertOp = RedisValue_FromBool;
             if (t == typeof(bool?)) convertOp = RedisValue_FromNullableBool;
-
-            if (convertOp == null)
-            {
-                // TODO: better exception type!
-                throw new Exception("Cannot convert member [" + member.Name + "] on [" + member.DeclaringType.FullName + "] to a RedisValue");
-            }
-
+            
             il.Emit(OpCodes.Call, convertOp);
 
             // stack ends:
