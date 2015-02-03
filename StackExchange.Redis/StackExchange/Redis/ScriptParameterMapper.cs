@@ -168,12 +168,12 @@ namespace StackExchange.Redis.StackExchange.Redis
         /// Turns a script with @namedParameters into a PreparedScript that can be executed
         /// against a given IDatabase(Async) object
         /// </summary>
-        public static PreparedScript PrepareScript(string script)
+        public static LuaScript PrepareScript(string script)
         {
             var ps = ExtractParameters(script);
             var ordinalScript = MakeOrdinalScriptWithoutKeys(script, ps);
 
-            return new PreparedScript(script, ordinalScript, ps);
+            return new LuaScript(script, ordinalScript, ps);
         }
 
         /// <summary>
@@ -185,7 +185,7 @@ namespace StackExchange.Redis.StackExchange.Redis
         /// We send all values as arguments so we don't have to prepare the same script for different parameter
         /// types.
         /// </summary>
-        public static Func<object, ScriptParameters> GetParameterExtractor(Type t, PreparedScript script)
+        public static Func<object, ScriptParameters> GetParameterExtractor(Type t, LuaScript script)
         {
             var keys = new List<MemberInfo>();
             var args = new List<MemberInfo>();
