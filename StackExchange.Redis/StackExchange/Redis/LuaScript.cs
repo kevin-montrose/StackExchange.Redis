@@ -81,9 +81,15 @@ namespace StackExchange.Redis
                         if (mapper == null)
                         {
                             string missingMember;
-                            if(!ScriptParameterMapper.IsValidParameterHash(psType, this, out missingMember))
+                            string badMemberType;
+                            if(!ScriptParameterMapper.IsValidParameterHash(psType, this, out missingMember, out badMemberType))
                             {
-                                throw new ArgumentException("ps", "Expected [" + missingMember + "] to be a field or gettable property on [" + psType.FullName + "]");
+                                if (missingMember != null)
+                                {
+                                    throw new ArgumentException("ps", "Expected [" + missingMember + "] to be a field or gettable property on [" + psType.FullName + "]");
+                                }
+
+                                throw new ArgumentException("ps", "Expected [" + badMemberType + "] on [" + psType.FullName + "] to be convertable to a RedisValue");
                             }
 
                             ParameterMappers[psType] = mapper = ScriptParameterMapper.GetParameterExtractor(psType, this);

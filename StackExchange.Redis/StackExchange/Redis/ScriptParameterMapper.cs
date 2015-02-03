@@ -176,7 +176,27 @@ namespace StackExchange.Redis
             return new LuaScript(script, ordinalScript, ps);
         }
 
-        public static bool IsValidParameterHash(Type t, LuaScript script, out string missingMember)
+        static readonly HashSet<Type> ConvertableTypes =
+            new HashSet<Type> {
+                typeof(int),
+                typeof(int?),
+                typeof(long),
+                typeof(long?),
+                typeof(double),
+                typeof(double?),
+                typeof(string),
+                typeof(byte[]),
+                typeof(bool),
+                typeof(bool?),
+
+                typeof(RedisKey),
+                typeof(RedisValue)
+            };
+
+        /// <summary>
+        /// Determines whether or not the given type can be used to provide parameters for the given LuaScript.
+        /// </summary>
+        public static bool IsValidParameterHash(Type t, LuaScript script, out string missingMember, out string badTypeMember)
         {
             for (var i = 0; i < script.Arguments.Length; i++)
             {
@@ -185,11 +205,19 @@ namespace StackExchange.Redis
                 if (member == null)
                 {
                     missingMember = argName;
+                    badTypeMember = null;
+                    return false;
+                }
+
+                var memberType = member is FieldInfo ? ((FieldInfo)member).FieldType : ((PropertyInfo)member).PropertyType;
+                if(!ConvertableTypes.Contains(memberType)){
+                    missingMember = null;
+                    badTypeMember = argName;
                     return false;
                 }
             }
 
-            missingMember = null;
+            missingMember = badTypeMember = null;
             return true;
         }
 
@@ -204,6 +232,9 @@ namespace StackExchange.Redis
         /// </summary>
         public static Func<object, ScriptParameters> GetParameterExtractor(Type t, LuaScript script)
         {
+            string ignored;
+            if (!IsValidParameterHash(t, script, out ignored, out ignored)) throw new Exception("Shouldn't be possible");
+
             var keys = new List<MemberInfo>();
             var args = new List<MemberInfo>();
 
