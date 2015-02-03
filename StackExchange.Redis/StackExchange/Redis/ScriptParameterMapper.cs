@@ -28,9 +28,11 @@ namespace StackExchange.Redis.StackExchange.Redis
         static readonly Regex ParameterExtractor = new Regex(@"@(?<paramName>([a-z]|_)([a-z]|_|\d)*)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         static string[] ExtractParameters(string script)
         {
+            var ps = ParameterExtractor.Matches(script);
+            if (ps.Count == 0) return null;
+
             var ret = new HashSet<string>();
 
-            var ps = ParameterExtractor.Matches(script);
             for (var i = 0; i < ps.Count; i++)
             {
                 var c = ps[i];

@@ -29,6 +29,9 @@ namespace StackExchange.Redis.StackExchange.Redis
         public string ExecutableScript { get; private set; }
 
         internal string[] Arguments { get; private set; }
+
+        bool HasArguments { get { return Arguments != null && Arguments.Length > 0; } }
+
         Hashtable ParameterMappers;
 
         internal PreparedScript(string originalScript, string executableScript, string[] arguments)
@@ -37,12 +40,15 @@ namespace StackExchange.Redis.StackExchange.Redis
             ExecutableScript = executableScript;
             Arguments = arguments;
 
-            ParameterMappers = new Hashtable();
+            if (HasArguments)
+            {
+                ParameterMappers = new Hashtable();
+            }
         }
 
         void ExtractParameters(object ps, out RedisKey[] keys, out RedisValue[] args)
         {
-            if (ps == null && Arguments.Length != 0)
+            if (ps == null && HasArguments)
             {
                 // TODO: better exception
                 throw new Exception("Script requires parameters");
