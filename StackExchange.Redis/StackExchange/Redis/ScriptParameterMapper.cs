@@ -159,7 +159,7 @@ namespace StackExchange.Redis
         }
 
         /// <summary>
-        /// Turns a script with @namedParameters into a PreparedScript that can be executed
+        /// Turns a script with @namedParameters into a LuaScript that can be executed
         /// against a given IDatabase(Async) object
         /// </summary>
         public static LuaScript PrepareScript(string script)
@@ -216,7 +216,7 @@ namespace StackExchange.Redis
         }
 
         /// <summary>
-        /// Creates a Func that extracts parameters from the given type for use by a PreparedScript.
+        /// Creates a Func that extracts parameters from the given type for use by a LuaScript.
         /// 
         /// Members that are RedisKey's get extracted to be passed in as keys to redis; all members that
         /// appear in the script get extracted as RedisValue arguments to be sent up as args.
