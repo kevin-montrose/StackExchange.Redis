@@ -169,5 +169,52 @@ namespace StackExchange.Redis.Tests
 
             }
         }
+
+        [Test]
+        public void SimpleLuaScript()
+        {
+            const string Script = "return @ident";
+
+            using(var conn = Create(allowAdmin: true))
+            {
+                var server = conn.GetServer(PrimaryServer, PrimaryPort);
+                server.FlushAllDatabases();
+                server.ScriptFlush();
+
+                var prepared = LuaScript.Prepare(Script);
+
+                var db = conn.GetDatabase();
+
+                {
+                    var val = prepared.Evaluate(db, new { ident = "hello" });
+                    Assert.AreEqual("hello", (string)val);
+                }
+
+                {
+                    var val = prepared.Evaluate(db, new { ident = 123 });
+                    Assert.AreEqual(123, (int)val);
+                }
+
+                {
+                    var val = prepared.Evaluate(db, new { ident = 123L });
+                    Assert.AreEqual(123L, (long)val);
+                }
+
+                {
+                    var val = prepared.Evaluate(db, new { ident = 1.1 });
+                    Assert.AreEqual(1.1, (double)val);
+                }
+
+                {
+                    var val = prepared.Evaluate(db, new { ident = true });
+                    Assert.AreEqual(true, (bool)val);
+                }
+
+                {
+                    var val = prepared.Evaluate(db, new { ident = new byte[] { 4, 5, 6 } });
+                    Assert.IsTrue(new byte [] { 4, 5, 6}.SequenceEqual((byte[])val));
+                }
+            }
+        }
     }
 }
