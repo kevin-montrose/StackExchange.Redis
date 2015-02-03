@@ -15,6 +15,8 @@ namespace StackExchange.Redis.StackExchange.Redis
     /// 
     /// Parameters of type RedisKey are sent to Redis as KEY (http://redis.io/commands/eval) in addition to arguments, 
     /// so as to play nicely with Redis Cluster.
+    /// 
+    /// All members of this class are thread safe.
     /// </summary>
     public sealed class PreparedScript
     {
@@ -48,33 +50,33 @@ namespace StackExchange.Redis.StackExchange.Redis
 
         void ExtractParameters(object ps, out RedisKey[] keys, out RedisValue[] args)
         {
-            if (ps == null && HasArguments)
+            if (HasArguments)
             {
                 // TODO: better exception
-                throw new Exception("Script requires parameters");
-            }
+                if (ps == null) throw new Exception("Script requires parameters");
 
-            var psType = ps != null ? ps.GetType() : null;
-            var mapper = ps != null ? (Func<object, ScriptParameterMapper.ScriptParameters>)ParameterMappers[psType] : null;
-            if (ps != null && mapper == null)
-            {
-                lock (ParameterMappers)
+                var psType = ps.GetType();
+                var mapper = (Func<object, ScriptParameterMapper.ScriptParameters>)ParameterMappers[psType];
+                if (ps != null && mapper == null)
                 {
-                    mapper = (Func<object, ScriptParameterMapper.ScriptParameters>)ParameterMappers[psType];
-                    if (mapper == null)
+                    lock (ParameterMappers)
                     {
-                        ParameterMappers[psType] = mapper = ScriptParameterMapper.GetParameterExtractor(psType, this);
+                        mapper = (Func<object, ScriptParameterMapper.ScriptParameters>)ParameterMappers[psType];
+                        if (mapper == null)
+                        {
+                            ParameterMappers[psType] = mapper = ScriptParameterMapper.GetParameterExtractor(psType, this);
+                        }
                     }
                 }
-            }
 
-            keys = null;
-            args = null;
-            if (mapper != null)
-            {
                 var mapped = mapper(ps);
                 keys = mapped.Keys;
                 args = mapped.Arguments;
+            }
+            else
+            {
+                keys = null;
+                args = null;
             }
         }
 
