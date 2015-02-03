@@ -21,6 +21,8 @@ namespace StackExchange.Redis.StackExchange.Redis
     /// </summary>
     public sealed class PreparedScript
     {
+        // Since the mapping of "scritp text" -> PreparedScript doesn't depend on any particular details of
+        //    the redis connection itself, this cache is global.
         static readonly ConcurrentDictionary<string, PreparedScript> Cache = new ConcurrentDictionary<string, PreparedScript>();
 
         /// <summary>
@@ -33,6 +35,7 @@ namespace StackExchange.Redis.StackExchange.Redis
         /// </summary>
         public string ExecutableScript { get; private set; }
 
+        // Arguments are in the order they have to passed to the script in
         internal string[] Arguments { get; private set; }
 
         bool HasArguments { get { return Arguments != null && Arguments.Length > 0; } }
@@ -184,6 +187,11 @@ namespace StackExchange.Redis.StackExchange.Redis
         /// </summary>
         public string ExecutableScript { get { return Original.ExecutableScript; } }
 
+        /// <summary>
+        /// The SHA1 hash of ExecutableScript.
+        /// 
+        /// This is sent to Redis instead of ExecutableScript during Evaluate and EvaluateAsync calls.
+        /// </summary>
         public byte[] Hash { get; private set; }
 
         PreparedScript Original;
