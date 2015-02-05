@@ -25,7 +25,7 @@ namespace StackExchange.Redis
             }
         }
 
-        static readonly Regex ParameterExtractor = new Regex(@"@(?<paramName>([a-z]|_)([a-z]|_|\d)*)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        static readonly Regex ParameterExtractor = new Regex(@"@(?<paramName> ([a-z]|_) ([a-z]|_|\d)*)", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.IgnorePatternWhitespace);
         static string[] ExtractParameters(string script)
         {
             var ps = ParameterExtractor.Matches(script);
@@ -36,6 +36,15 @@ namespace StackExchange.Redis
             for (var i = 0; i < ps.Count; i++)
             {
                 var c = ps[i];
+                var ix = c.Index - 1;
+                if (ix > 0)
+                {
+                    var prevChar = script[ix];
+                    
+                    // don't consider this a parameter if it's in the middle of word (ie. if it's preceeded by a letter)
+                    if (char.IsLetter(prevChar)) continue;
+                }
+
                 var n = c.Groups["paramName"].Value;
                 if (!ret.Contains(n)) ret.Add(n);
             }
@@ -66,6 +75,10 @@ namespace StackExchange.Redis
                     ret.Append("ARGV[");
                     ret.Append(argIx + 1);
                     ret.Append("]");
+                }
+                else
+                {
+                    ret.Append(capture.Value);
                 }
 
                 upTo = capture.Index + capture.Length;

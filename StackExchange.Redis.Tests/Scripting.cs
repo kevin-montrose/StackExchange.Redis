@@ -223,7 +223,6 @@ namespace StackExchange.Redis.Tests
         {
             const string Script = "redis.call('set', @key, @value)";
 
-            var log = new StringWriter();
             using (var conn = Create(allowAdmin: true))
             {
                 var server = conn.GetServer(PrimaryServer, PrimaryPort);
@@ -247,6 +246,30 @@ namespace StackExchange.Redis.Tests
                 Assert.IsNotNull(keys);
                 Assert.AreEqual(1, keys.Length);
                 Assert.AreEqual("testkey", (string)keys[0]);
+            }
+        }
+
+        [Test]
+        public void NoInlineReplacement()
+        {
+            const string Script = "redis.call('set', @key, 'hello@example')";
+            using (var conn = Create(allowAdmin: true))
+            {
+                var server = conn.GetServer(PrimaryServer, PrimaryPort);
+                server.FlushAllDatabases();
+                server.ScriptFlush();
+
+                var script = LuaScript.Prepare(Script);
+
+                Assert.AreEqual("redis.call('set', ARGV[1], 'hello@example')", script.ExecutableScript);
+
+                var db = conn.GetDatabase();
+
+                var p = new { key = (RedisKey)"key" };
+
+                script.Evaluate(db, p);
+                var val = db.StringGet("key");
+                Assert.AreEqual("hello@example", (string)val);
             }
         }
 
