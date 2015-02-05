@@ -274,6 +274,15 @@ namespace StackExchange.Redis.Tests
         }
 
         [Test]
+        public void EscapeReplacement()
+        {
+            const string Script = "redis.call('set', @key, @@escapeMe)";
+            var script = LuaScript.Prepare(Script);
+
+            Assert.AreEqual("redis.call('set', ARGV[1], @escapeMe)", script.ExecutableScript);
+        }
+
+        [Test]
         public void SimpleLoadedLuaScript()
         {
             const string Script = "return @ident";

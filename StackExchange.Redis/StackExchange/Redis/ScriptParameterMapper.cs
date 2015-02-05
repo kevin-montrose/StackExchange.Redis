@@ -37,12 +37,15 @@ namespace StackExchange.Redis
             {
                 var c = ps[i];
                 var ix = c.Index - 1;
-                if (ix > 0)
+                if (ix >= 0)
                 {
                     var prevChar = script[ix];
                     
                     // don't consider this a parameter if it's in the middle of word (ie. if it's preceeded by a letter)
                     if (char.IsLetter(prevChar)) continue;
+                    
+                    // this is an escape, ignore it
+                    if (prevChar == '@') continue;
                 }
 
                 var n = c.Groups["paramName"].Value;
@@ -78,7 +81,23 @@ namespace StackExchange.Redis
                 }
                 else
                 {
-                    ret.Append(capture.Value);
+                    var isEscape = false;
+                    var prevIx = capture.Index - 1;
+                    if (prevIx >= 0)
+                    {
+                        var prevChar = rawScript[prevIx];
+                        isEscape = prevChar == '@';
+                    }
+
+                    if (isEscape)
+                    {
+                        // strip the @ off, so just the one triggering the escape exists
+                        ret.Append(capture.Groups["paramName"].Value);
+                    }
+                    else
+                    {
+                        ret.Append(capture.Value);
+                    }
                 }
 
                 upTo = capture.Index + capture.Length;
