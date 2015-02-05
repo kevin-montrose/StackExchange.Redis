@@ -42,7 +42,7 @@ namespace StackExchange.Redis
                     var prevChar = script[ix];
                     
                     // don't consider this a parameter if it's in the middle of word (ie. if it's preceeded by a letter)
-                    if (char.IsLetter(prevChar)) continue;
+                    if (char.IsLetterOrDigit(prevChar) || prevChar == '_') continue;
                     
                     // this is an escape, ignore it
                     if (prevChar == '@') continue;
