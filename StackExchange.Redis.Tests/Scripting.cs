@@ -242,7 +242,7 @@ namespace StackExchange.Redis.Tests
                 // no super clean way to extract this; so just abuse InternalsVisibleTo
                 RedisKey[] keys;
                 RedisValue[] args;
-                script.ExtractParameters(p, out keys, out args);
+                script.ExtractParameters(p, null, out keys, out args);
                 Assert.IsNotNull(keys);
                 Assert.AreEqual(1, keys.Length);
                 Assert.AreEqual("testkey", (string)keys[0]);
@@ -355,7 +355,7 @@ namespace StackExchange.Redis.Tests
                 // no super clean way to extract this; so just abuse InternalsVisibleTo
                 RedisKey[] keys;
                 RedisValue[] args;
-                prepared.Original.ExtractParameters(p, out keys, out args);
+                prepared.Original.ExtractParameters(p, null, out keys, out args);
                 Assert.IsNotNull(keys);
                 Assert.AreEqual(1, keys.Length);
                 Assert.AreEqual("testkey", (string)keys[0]);
@@ -423,6 +423,72 @@ namespace StackExchange.Redis.Tests
                 db.ScriptEvaluate(prepared, new { key = (RedisKey)"key2", value = "value2" });
                 var val2 = db.StringGet("key2");
                 Assert.AreEqual("value2", (string)val2);
+            }
+        }
+
+        [Test]
+        public void LuaScriptPrefixedKeys()
+        {
+            const string Script = "redis.call('set', @key, @value)";
+            var prepared = LuaScript.Prepare(Script);
+            var p = new { key = (RedisKey)"key", value = "hello" };
+
+            // no super clean way to extract this; so just abuse InternalsVisibleTo
+            RedisKey[] keys;
+            RedisValue[] args;
+            prepared.ExtractParameters(p, "prefix-", out keys, out args);
+            Assert.IsNotNull(keys);
+            Assert.AreEqual(1, keys.Length);
+            Assert.AreEqual("prefix-key", (string)keys[0]);
+            Assert.AreEqual(2, args.Length);
+            Assert.AreEqual("prefix-key", (string)args[0]);
+            Assert.AreEqual("hello", (string)args[1]);
+        }
+
+        [Test]
+        public void LuaScriptWithWrappedDatabase()
+        {
+            const string Script = "redis.call('set', @key, @value)";
+
+            using (var conn = Create(allowAdmin: true))
+            {
+                var db = conn.GetDatabase(0);
+                var wrappedDb = StackExchange.Redis.KeyspaceIsolation.DatabaseExtensions.WithKeyPrefix(db, "prefix-");
+
+                var prepared = LuaScript.Prepare(Script);
+                wrappedDb.ScriptEvaluate(prepared, new { key = (RedisKey)"mykey", value = 123 });
+                var val1 = wrappedDb.StringGet("mykey");
+                Assert.AreEqual(123, (int)val1);
+
+                var val2 = db.StringGet("prefix-mykey");
+                Assert.AreEqual(123, (int)val2);
+
+                var val3 = db.StringGet("mykey");
+                Assert.IsTrue(val3.IsNull);
+            }
+        }
+
+        [Test]
+        public void LoadedLuaScriptWithWrappedDatabase()
+        {
+            const string Script = "redis.call('set', @key, @value)";
+
+            using (var conn = Create(allowAdmin: true))
+            {
+                var db = conn.GetDatabase(0);
+                var wrappedDb = StackExchange.Redis.KeyspaceIsolation.DatabaseExtensions.WithKeyPrefix(db, "prefix2-");
+
+                var server = conn.GetServer(conn.GetEndPoints()[0]);
+                var prepared = LuaScript.Prepare(Script).Load(server);
+                wrappedDb.ScriptEvaluate(prepared, new { key = (RedisKey)"mykey", value = 123 });
+                var val1 = wrappedDb.StringGet("mykey");
+                Assert.AreEqual(123, (int)val1);
+
+                var val2 = db.StringGet("prefix2-mykey");
+                Assert.AreEqual(123, (int)val2);
+
+                var val3 = db.StringGet("mykey");
+                Assert.IsTrue(val3.IsNull);
             }
         }
     }

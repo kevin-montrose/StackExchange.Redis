@@ -150,7 +150,7 @@ namespace StackExchange.Redis
         static readonly MethodInfo RedisValue_FromBool = typeof(RedisValue).GetMethod("op_Implicit", new[] { typeof(bool) });
         static readonly MethodInfo RedisValue_FromNullableBool = typeof(RedisValue).GetMethod("op_Implicit", new[] { typeof(bool?) });
         static readonly MethodInfo RedisKey_AsRedisValue = typeof(RedisKey).GetMethod("AsRedisValue", BindingFlags.NonPublic | BindingFlags.Instance);
-        static void ConvertToRedisValue(MemberInfo member, ILGenerator il, ref LocalBuilder redisKeyLoc)
+        static void ConvertToRedisValue(MemberInfo member, ILGenerator il, LocalBuilder needsPrefixBool, ref LocalBuilder redisKeyLoc)
         {
             // stack starts:
             // typeof(member)
@@ -166,9 +166,10 @@ namespace StackExchange.Redis
             if (t == typeof(RedisKey))
             {
                 redisKeyLoc = redisKeyLoc ?? il.DeclareLocal(typeof(RedisKey));
-                il.Emit(OpCodes.Stloc, redisKeyLoc);            // --empty--
-                il.Emit(OpCodes.Ldloca, redisKeyLoc);           // RedisKey*
-                il.Emit(OpCodes.Call, RedisKey_AsRedisValue);   // RedisValue
+                PrefixIfNeeded(il, needsPrefixBool, ref redisKeyLoc);   // RedisKey
+                il.Emit(OpCodes.Stloc, redisKeyLoc);                    // --empty--
+                il.Emit(OpCodes.Ldloca, redisKeyLoc);                   // RedisKey*
+                il.Emit(OpCodes.Call, RedisKey_AsRedisValue);           // RedisValue
                 return;
             }
 
@@ -247,6 +248,29 @@ namespace StackExchange.Redis
             return true;
         }
 
+        static void PrefixIfNeeded(ILGenerator il, LocalBuilder needsPrefixBool, ref LocalBuilder redisKeyLoc)
+        {
+            // top of stack is
+            // RedisKey
+
+            var getVal = typeof(RedisKey?).GetProperty("Value").GetMethod;
+            var prepend = typeof(RedisKey).GetMethod("Prepend");
+
+            var doNothing = il.DefineLabel();
+            redisKeyLoc = redisKeyLoc ?? il.DeclareLocal(typeof(RedisKey));
+
+            il.Emit(OpCodes.Ldloc, needsPrefixBool);    // RedisKey bool
+            il.Emit(OpCodes.Brfalse, doNothing);        // RedisKey
+            il.Emit(OpCodes.Stloc, redisKeyLoc);        // --empty--
+            il.Emit(OpCodes.Ldloca, redisKeyLoc);       // RedisKey*
+            il.Emit(OpCodes.Ldarga_S, 1);               // RedisKey* RedisKey?*
+            il.Emit(OpCodes.Call, getVal);              // RedisKey* RedisKey
+            il.Emit(OpCodes.Call, prepend);             // RedisKey
+
+
+            il.MarkLabel(doNothing);                    // RedisKey
+        }
+
         /// <summary>
         /// Creates a Func that extracts parameters from the given type for use by a LuaScript.
         /// 
@@ -255,8 +279,11 @@ namespace StackExchange.Redis
         /// 
         /// We send all values as arguments so we don't have to prepare the same script for different parameter
         /// types.
+        /// 
+        /// The created Func takes a RedisKey, which will be prefixed to all keys (and arguments of type RedisKey) for 
+        /// keyspace isolation.
         /// </summary>
-        public static Func<object, ScriptParameters> GetParameterExtractor(Type t, LuaScript script)
+        public static Func<object, RedisKey?, ScriptParameters> GetParameterExtractor(Type t, LuaScript script)
         {
             string ignored;
             if (!IsValidParameterHash(t, script, out ignored, out ignored)) throw new Exception("Shouldn't be possible");
@@ -279,7 +306,9 @@ namespace StackExchange.Redis
                 args.Add(member);
             }
 
-            var dyn = new DynamicMethod("ParameterExtractor_" + t.FullName + "_" + script.OriginalScript.GetHashCode(), typeof(ScriptParameters), new[] { typeof(object) }, restrictedSkipVisibility: true);
+            var nullableRedisKeyHasValue = typeof(RedisKey?).GetProperty("HasValue").GetMethod;
+
+            var dyn = new DynamicMethod("ParameterExtractor_" + t.FullName + "_" + script.OriginalScript.GetHashCode(), typeof(ScriptParameters), new[] { typeof(object), typeof(RedisKey?) }, restrictedSkipVisibility: true);
             var il = dyn.GetILGenerator();
 
             // only init'd if we use it
@@ -295,6 +324,12 @@ namespace StackExchange.Redis
                 il.Emit(OpCodes.Castclass, t);      // T
             }
             il.Emit(OpCodes.Stloc, loc);            // --empty--
+
+            var needsKeyPrefixLoc = il.DeclareLocal(typeof(bool));
+            
+            il.Emit(OpCodes.Ldarga_S, 1);                       // RedisKey?*
+            il.Emit(OpCodes.Call, nullableRedisKeyHasValue);    // bool
+            il.Emit(OpCodes.Stloc, needsKeyPrefixLoc);          // --empty--
 
             if (keys.Count == 0)
             {
@@ -319,8 +354,9 @@ namespace StackExchange.Redis
                 {
                     il.Emit(OpCodes.Ldloc, loc);            // RedisKey[] RedisKey[] int T
                 }
-                LoadMember(il, keys[i]);                    // RedisKey[] RedisKey[] int RedisKey
-                il.Emit(OpCodes.Stelem, typeof(RedisKey));  // RedisKey[]
+                LoadMember(il, keys[i]);                                // RedisKey[] RedisKey[] int RedisKey
+                PrefixIfNeeded(il, needsKeyPrefixLoc, ref redisKeyLoc); // RedisKey[] RedisKey[] int RedisKey
+                il.Emit(OpCodes.Stelem, typeof(RedisKey));              // RedisKey[]
             }
 
             if (args.Count == 0)
@@ -348,8 +384,8 @@ namespace StackExchange.Redis
                 }
                 
                 var member = args[i];
-                LoadMember(il, member);                             // RedisKey[] RedisValue[] RedisValue[] int memberType
-                ConvertToRedisValue(member, il, ref redisKeyLoc);   // RedisKey[] RedisValue[] RedisValue[] int RedisValue
+                LoadMember(il, member);                                                 // RedisKey[] RedisValue[] RedisValue[] int memberType
+                ConvertToRedisValue(member, il, needsKeyPrefixLoc, ref redisKeyLoc);   // RedisKey[] RedisValue[] RedisValue[] int RedisValue
 
                 il.Emit(OpCodes.Stelem, typeof(RedisValue));        // RedisKey[] RedisValue[]
             }
@@ -357,7 +393,7 @@ namespace StackExchange.Redis
             il.Emit(OpCodes.Newobj, ScriptParameters.Cons); // ScriptParameters
             il.Emit(OpCodes.Ret);                           // --empty--
 
-            var ret = (Func<object, ScriptParameters>)dyn.CreateDelegate(typeof(Func<object, ScriptParameters>));
+            var ret = (Func<object, RedisKey?, ScriptParameters>)dyn.CreateDelegate(typeof(Func<object, RedisKey?, ScriptParameters>));
 
             return ret;
         }

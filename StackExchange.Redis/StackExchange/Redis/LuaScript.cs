@@ -105,19 +105,19 @@ namespace StackExchange.Redis
             return ret;
         }
 
-        internal void ExtractParameters(object ps, out RedisKey[] keys, out RedisValue[] args)
+        internal void ExtractParameters(object ps, RedisKey? keyPrefix, out RedisKey[] keys, out RedisValue[] args)
         {
             if (HasArguments)
             {
                 if (ps == null) throw new ArgumentNullException("ps", "Script requires parameters");
 
                 var psType = ps.GetType();
-                var mapper = (Func<object, ScriptParameterMapper.ScriptParameters>)ParameterMappers[psType];
+                var mapper = (Func<object, RedisKey?, ScriptParameterMapper.ScriptParameters>)ParameterMappers[psType];
                 if (ps != null && mapper == null)
                 {
                     lock (ParameterMappers)
                     {
-                        mapper = (Func<object, ScriptParameterMapper.ScriptParameters>)ParameterMappers[psType];
+                        mapper = (Func<object, RedisKey?, ScriptParameterMapper.ScriptParameters>)ParameterMappers[psType];
                         if (mapper == null)
                         {
                             string missingMember;
@@ -137,7 +137,7 @@ namespace StackExchange.Redis
                     }
                 }
 
-                var mapped = mapper(ps);
+                var mapped = mapper(ps, keyPrefix);
                 keys = mapped.Keys;
                 args = mapped.Arguments;
             }
@@ -151,11 +151,11 @@ namespace StackExchange.Redis
         /// <summary>
         /// Evaluates this LuaScript against the given database, extracting parameters from the passed in object if any.
         /// </summary>
-        public RedisResult Evaluate(IDatabase db, object ps = null, CommandFlags flags = CommandFlags.None)
+        public RedisResult Evaluate(IDatabase db, object ps = null, RedisKey? withKeyPrefix = null, CommandFlags flags = CommandFlags.None)
         {
             RedisKey[] keys;
             RedisValue[] args;
-            ExtractParameters(ps, out keys, out args);
+            ExtractParameters(ps, withKeyPrefix, out keys, out args);
 
             return db.ScriptEvaluate(ExecutableScript, keys, args, flags);
         }
@@ -163,11 +163,11 @@ namespace StackExchange.Redis
         /// <summary>
         /// Evaluates this LuaScript against the given database, extracting parameters from the passed in object if any.
         /// </summary>
-        public Task<RedisResult> EvaluateAsync(IDatabaseAsync db, object ps = null, CommandFlags flags = CommandFlags.None)
+        public Task<RedisResult> EvaluateAsync(IDatabaseAsync db, object ps = null, RedisKey? withKeyPrefix = null, CommandFlags flags = CommandFlags.None)
         {
             RedisKey[] keys;
             RedisValue[] args;
-            ExtractParameters(ps, out keys, out args);
+            ExtractParameters(ps, withKeyPrefix, out keys, out args);
 
             return db.ScriptEvaluateAsync(ExecutableScript, keys, args, flags);
         }
@@ -260,11 +260,11 @@ namespace StackExchange.Redis
         /// This method sends the SHA1 hash of the ExecutableScript instead of the script itself.  If the script has not
         /// been loaded into the passed Redis instance it will fail.
         /// </summary>
-        public RedisResult Evaluate(IDatabase db, object ps = null, CommandFlags flags = CommandFlags.None)
+        public RedisResult Evaluate(IDatabase db, object ps = null, RedisKey? withKeyPrefix = null, CommandFlags flags = CommandFlags.None)
         {
             RedisKey[] keys;
             RedisValue[] args;
-            Original.ExtractParameters(ps, out keys, out args);
+            Original.ExtractParameters(ps, withKeyPrefix, out keys, out args);
 
             return db.ScriptEvaluate(Hash, keys, args, flags);
         }
@@ -275,11 +275,11 @@ namespace StackExchange.Redis
         /// This method sends the SHA1 hash of the ExecutableScript instead of the script itself.  If the script has not
         /// been loaded into the passed Redis instance it will fail.
         /// </summary>
-        public Task<RedisResult> EvaluateAsync(IDatabaseAsync db, object ps = null, CommandFlags flags = CommandFlags.None)
+        public Task<RedisResult> EvaluateAsync(IDatabaseAsync db, object ps = null, RedisKey? withKeyPrefix = null, CommandFlags flags = CommandFlags.None)
         {
             RedisKey[] keys;
             RedisValue[] args;
-            Original.ExtractParameters(ps, out keys, out args);
+            Original.ExtractParameters(ps, withKeyPrefix, out keys, out args);
 
             return db.ScriptEvaluateAsync(Hash, keys, args, flags);
         }
