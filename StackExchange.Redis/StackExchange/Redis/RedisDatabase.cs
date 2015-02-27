@@ -874,6 +874,14 @@ namespace StackExchange.Redis
             var msg = new ScriptEvalMessage(Db, flags, hash, keys, values);
             return ExecuteSync(msg, ResultProcessor.ScriptResult);
         }
+        public RedisResult ScriptEvaluate(LuaScript script, object parameters = null, CommandFlags flags = CommandFlags.None)
+        {
+            return script.Evaluate(this, parameters, flags);
+        }
+        public RedisResult ScriptEvaluate(LoadedLuaScript script, object parameters = null, CommandFlags flags = CommandFlags.None)
+        {
+            return script.Evaluate(this, parameters, flags);
+        }
 
         public Task<RedisResult> ScriptEvaluateAsync(string script, RedisKey[] keys = null, RedisValue[] values = null, CommandFlags flags = CommandFlags.None)
         {
@@ -884,6 +892,14 @@ namespace StackExchange.Redis
         {
             var msg = new ScriptEvalMessage(Db, flags, hash, keys, values);
             return ExecuteAsync(msg, ResultProcessor.ScriptResult);
+        }
+        public Task<RedisResult> ScriptEvaluateAsync(LuaScript script, object parameters = null, CommandFlags flags = CommandFlags.None)
+        {
+            return script.EvaluateAsync(this, parameters, flags);
+        }
+        public Task<RedisResult> ScriptEvaluateAsync(LoadedLuaScript script, object parameters = null, CommandFlags flags = CommandFlags.None)
+        {
+            return script.EvaluateAsync(this, parameters, flags);
         }
 
         public bool SetAdd(RedisKey key, RedisValue value, CommandFlags flags = CommandFlags.None)

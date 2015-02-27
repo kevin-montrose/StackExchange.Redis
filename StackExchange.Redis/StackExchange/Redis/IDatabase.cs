@@ -466,7 +466,20 @@ namespace StackExchange.Redis
         /// <remarks>http://redis.io/commands/evalsha</remarks>
         /// <returns>A dynamic representation of the script's result</returns>
         RedisResult ScriptEvaluate(byte[] hash, RedisKey[] keys = null, RedisValue[] values = null, CommandFlags flags = CommandFlags.None);
-        
+
+        /// <summary>
+        /// Execute a lua script against the server, using previously prepared script.
+        /// Named parameters, if any, are provided by the `parameters` object.
+        /// </summary>
+        RedisResult ScriptEvaluate(LuaScript script, object parameters = null, CommandFlags flags = CommandFlags.None);
+
+        /// <summary>
+        /// Execute a lua script against the server, using previously prepared and loaded script.
+        /// This method sends only the SHA1 hash of the lua script to Redis.
+        /// Named parameters, if any, are provided by the `parameters` object.
+        /// </summary>
+        RedisResult ScriptEvaluate(LoadedLuaScript script, object parameters = null, CommandFlags flags = CommandFlags.None);
+
         /// <summary>
         /// Add the specified member to the set stored at key. Specified members that are already a member of this set are ignored. If key does not exist, a new set is created before adding the specified members.
         /// </summary>

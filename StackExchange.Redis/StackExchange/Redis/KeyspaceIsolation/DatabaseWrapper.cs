@@ -317,16 +317,22 @@ namespace StackExchange.Redis.KeyspaceIsolation
             return this.Inner.ScriptEvaluate(hash, this.ToInner(keys), values, flags);
         }
 
-        public RedisResult ScriptEvaluateWithParameters<T>(string script, T parameters, CommandFlags flags = CommandFlags.None)
-        {
-            // TODO: Implement!
-            throw new NotImplementedException();
-        }
-
         public RedisResult ScriptEvaluate(string script, RedisKey[] keys = null, RedisValue[] values = null, CommandFlags flags = CommandFlags.None)
         {
             // TODO: The return value could contain prefixed keys. It might make sense to 'unprefix' those?
             return this.Inner.ScriptEvaluate(script, this.ToInner(keys), values, flags);
+        }
+
+        public RedisResult ScriptEvaluate(LuaScript script, object parameters = null, CommandFlags flags = CommandFlags.None)
+        {
+            // TODO: Keyspace keys?  Make it happen
+            throw new NotImplementedException();
+        }
+
+        public RedisResult ScriptEvaluate(LoadedLuaScript script, object parameters = null, CommandFlags flags = CommandFlags.None)
+        {
+            // TODO: Keyspace keys?  Make it happen
+            throw new NotImplementedException();
         }
 
         public long SetAdd(RedisKey key, RedisValue[] values, CommandFlags flags = CommandFlags.None)

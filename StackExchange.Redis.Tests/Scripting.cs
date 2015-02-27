@@ -404,5 +404,26 @@ namespace StackExchange.Redis.Tests
             var shouldBeNew = LuaScript.Prepare(Script);
             Assert.AreEqual(1, LuaScript.GetCachedScriptCount());
         }
+
+        [Test]
+        public void IDatabaseLuaScriptConvenienceMethods()
+        {
+            const string Script = "redis.call('set', @key, @value)";
+
+            using (var conn = Create(allowAdmin: true))
+            {
+                var script = LuaScript.Prepare(Script);
+                var db = conn.GetDatabase();
+                db.ScriptEvaluate(script, new { key = (RedisKey)"key", value = "value" });
+                var val = db.StringGet("key");
+                Assert.AreEqual("value", (string)val);
+
+                var prepared = script.Load(conn.GetServer(conn.GetEndPoints()[0]));
+
+                db.ScriptEvaluate(prepared, new { key = (RedisKey)"key2", value = "value2" });
+                var val2 = db.StringGet("key2");
+                Assert.AreEqual("value2", (string)val2);
+            }
+        }
     }
 }
