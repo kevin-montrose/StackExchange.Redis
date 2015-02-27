@@ -21,9 +21,9 @@ namespace StackExchange.Redis
     /// </summary>
     public sealed class LuaScript
     {
-        // Since the mapping of "scritp text" -> LuaScript doesn't depend on any particular details of
+        // Since the mapping of "script text" -> LuaScript doesn't depend on any particular details of
         //    the redis connection itself, this cache is global.
-        static readonly ConcurrentDictionary<string, LuaScript> Cache = new ConcurrentDictionary<string, LuaScript>();
+        static readonly ConcurrentDictionary<string, WeakReference<LuaScript>> Cache = new ConcurrentDictionary<string, WeakReference<LuaScript>>();
 
         /// <summary>
         /// The original Lua script that was used to create this.
@@ -57,12 +57,52 @@ namespace StackExchange.Redis
         }
 
         /// <summary>
+        /// Finalizer, used to prompt cleanups of the script cache when
+        /// a LuaScript reference goes out of scope.
+        /// </summary>
+        ~LuaScript()
+        {
+            try
+            {
+                WeakReference<LuaScript> ignored;
+                Cache.TryRemove(OriginalScript, out ignored);
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// Invalidates the internal cache of LuaScript objects.
+        /// Existing LuaScripts will continue to work, but future calls to LuaScript.Prepare
+        /// return a new LuaScript instance.
+        /// </summary>
+        public static void PurgeCache()
+        {
+            Cache.Clear();
+        }
+
+        /// <summary>
+        /// Returns the number of cached LuaScripts.
+        /// </summary>
+        public static int GetCachedScriptCount()
+        {
+            return Cache.Count;
+        }
+
+        /// <summary>
         /// Prepares a Lua script with named parameters to be run against any Redis instance.
         /// </summary>
         public static LuaScript Prepare(string script)
         {
-            // It's all the same, no reason to do the work twice.
-            return Cache.GetOrAdd(script, _ => ScriptParameterMapper.PrepareScript(script));
+            LuaScript ret;
+
+            WeakReference<LuaScript> weakRef;
+            if (!Cache.TryGetValue(script, out weakRef) || !weakRef.TryGetTarget(out ret))
+            {
+                ret = ScriptParameterMapper.PrepareScript(script);
+                Cache[script] = new WeakReference<LuaScript>(ret);
+            }
+
+            return ret;
         }
 
         internal void ExtractParameters(object ps, out RedisKey[] keys, out RedisValue[] args)

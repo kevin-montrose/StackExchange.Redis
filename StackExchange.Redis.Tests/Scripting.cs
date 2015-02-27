@@ -335,7 +335,6 @@ namespace StackExchange.Redis.Tests
         {
             const string Script = "redis.call('set', @key, @value)";
 
-            var log = new StringWriter();
             using (var conn = Create(allowAdmin: true))
             {
                 var server = conn.GetServer(PrimaryServer, PrimaryPort);
@@ -361,6 +360,49 @@ namespace StackExchange.Redis.Tests
                 Assert.AreEqual(1, keys.Length);
                 Assert.AreEqual("testkey", (string)keys[0]);
             }
+        }
+
+        [Test]
+        public void PurgeLuaScriptCache()
+        {
+            const string Script = "redis.call('set', @PurgeLuaScriptCacheKey, @PurgeLuaScriptCacheValue)";
+            var first = LuaScript.Prepare(Script);
+            var fromCache = LuaScript.Prepare(Script);
+
+            Assert.IsTrue(object.ReferenceEquals(first, fromCache));
+            
+            LuaScript.PurgeCache();
+            var shouldBeNew = LuaScript.Prepare(Script);
+
+            Assert.IsFalse(object.ReferenceEquals(first, shouldBeNew));
+        }
+
+        static void _PurgeLuaScriptOnFinalize(string script)
+        {
+            var first = LuaScript.Prepare(script);
+            var fromCache = LuaScript.Prepare(script);
+            Assert.IsTrue(object.ReferenceEquals(first, fromCache));
+            Assert.AreEqual(1, LuaScript.GetCachedScriptCount());
+        }
+
+        [Test]
+        public void PurgeLuaScriptOnFinalize()
+        {
+            const string Script = "redis.call('set', @PurgeLuaScriptOnFinalizeKey, @PurgeLuaScriptOnFinalizeValue)";
+            LuaScript.PurgeCache();
+            Assert.AreEqual(0, LuaScript.GetCachedScriptCount());
+
+            // This has to be a separate method to guarantee that the created LuaScript objects go out of scope,
+            //   and are thus available to be GC'd
+            _PurgeLuaScriptOnFinalize(Script);
+
+            GC.Collect(2, GCCollectionMode.Forced, blocking: true);
+            GC.WaitForPendingFinalizers();
+
+            Assert.AreEqual(0, LuaScript.GetCachedScriptCount());
+
+            var shouldBeNew = LuaScript.Prepare(Script);
+            Assert.AreEqual(1, LuaScript.GetCachedScriptCount());
         }
     }
 }
