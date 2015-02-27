@@ -23,7 +23,7 @@ namespace StackExchange.Redis
     {
         // Since the mapping of "script text" -> LuaScript doesn't depend on any particular details of
         //    the redis connection itself, this cache is global.
-        static readonly ConcurrentDictionary<string, WeakReference<LuaScript>> Cache = new ConcurrentDictionary<string, WeakReference<LuaScript>>();
+        static readonly ConcurrentDictionary<string, WeakReference> Cache = new ConcurrentDictionary<string, WeakReference>();
 
         /// <summary>
         /// The original Lua script that was used to create this.
@@ -64,7 +64,7 @@ namespace StackExchange.Redis
         {
             try
             {
-                WeakReference<LuaScript> ignored;
+                WeakReference ignored;
                 Cache.TryRemove(OriginalScript, out ignored);
             }
             catch { }
@@ -95,11 +95,11 @@ namespace StackExchange.Redis
         {
             LuaScript ret;
 
-            WeakReference<LuaScript> weakRef;
-            if (!Cache.TryGetValue(script, out weakRef) || !weakRef.TryGetTarget(out ret))
+            WeakReference weakRef;
+            if (!Cache.TryGetValue(script, out weakRef) || (ret = (LuaScript)weakRef.Target) == null)
             {
                 ret = ScriptParameterMapper.PrepareScript(script);
-                Cache[script] = new WeakReference<LuaScript>(ret);
+                Cache[script] = new WeakReference(ret);
             }
 
             return ret;

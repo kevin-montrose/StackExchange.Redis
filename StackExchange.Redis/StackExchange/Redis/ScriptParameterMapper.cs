@@ -253,7 +253,7 @@ namespace StackExchange.Redis
             // top of stack is
             // RedisKey
 
-            var getVal = typeof(RedisKey?).GetProperty("Value").GetMethod;
+            var getVal = typeof(RedisKey?).GetProperty("Value").GetGetMethod();
             var prepend = typeof(RedisKey).GetMethod("Prepend");
 
             var doNothing = il.DefineLabel();
@@ -306,7 +306,7 @@ namespace StackExchange.Redis
                 args.Add(member);
             }
 
-            var nullableRedisKeyHasValue = typeof(RedisKey?).GetProperty("HasValue").GetMethod;
+            var nullableRedisKeyHasValue = typeof(RedisKey?).GetProperty("HasValue").GetGetMethod();
 
             var dyn = new DynamicMethod("ParameterExtractor_" + t.FullName + "_" + script.OriginalScript.GetHashCode(), typeof(ScriptParameters), new[] { typeof(object), typeof(RedisKey?) }, restrictedSkipVisibility: true);
             var il = dyn.GetILGenerator();
