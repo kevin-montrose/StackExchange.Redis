@@ -138,7 +138,7 @@ namespace StackExchange.Redis
         /// 
         /// Note: the FireAndForget command flag cannot be set
         /// </summary>
-        public LoadedLuaScript ScriptLoad(IServer server, CommandFlags flags = CommandFlags.None)
+        public LoadedLuaScript Load(IServer server, CommandFlags flags = CommandFlags.None)
         {
             if (flags.HasFlag(CommandFlags.FireAndForget))
             {
@@ -156,7 +156,7 @@ namespace StackExchange.Redis
         /// 
         /// Note: the FireAndForget command flag cannot be set
         /// </summary>
-        public async Task<LoadedLuaScript> ScriptLoadAsync(IServer server, CommandFlags flags = CommandFlags.None)
+        public async Task<LoadedLuaScript> LoadAsync(IServer server, CommandFlags flags = CommandFlags.None)
         {
             if (flags.HasFlag(CommandFlags.FireAndForget))
             {

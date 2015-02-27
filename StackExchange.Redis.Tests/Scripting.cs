@@ -294,7 +294,7 @@ namespace StackExchange.Redis.Tests
                 server.ScriptFlush();
 
                 var prepared = LuaScript.Prepare(Script);
-                var loaded = prepared.ScriptLoad(server);
+                var loaded = prepared.Load(server);
 
                 var db = conn.GetDatabase();
 
@@ -343,7 +343,7 @@ namespace StackExchange.Redis.Tests
                 server.ScriptFlush();
 
                 var script = LuaScript.Prepare(Script);
-                var prepared = script.ScriptLoad(server);
+                var prepared = script.Load(server);
 
                 var db = conn.GetDatabase();
 
