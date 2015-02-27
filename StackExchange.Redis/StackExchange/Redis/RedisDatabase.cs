@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
@@ -881,7 +880,6 @@ namespace StackExchange.Redis
             var msg = new ScriptEvalMessage(Db, flags, script, keys, values);
             return ExecuteAsync(msg, ResultProcessor.ScriptResult);
         }
-
         public Task<RedisResult> ScriptEvaluateAsync(byte[] hash, RedisKey[] keys = null, RedisValue[] values = null, CommandFlags flags = CommandFlags.None)
         {
             var msg = new ScriptEvalMessage(Db, flags, hash, keys, values);
@@ -2222,7 +2220,7 @@ namespace StackExchange.Redis
 
             public IEnumerable<Message> GetMessages(PhysicalConnection connection)
             {
-                if (script != null) // a script was provided (rather than a hash); check it is known
+               if (script != null && connection.Multiplexer.CommandMap.IsAvailable(RedisCommand.SCRIPT)) // a script was provided (rather than a hash); check it is known and supported
                 {
                     asciiHash = connection.Bridge.ServerEndPoint.GetScriptHash(script, command);
 
