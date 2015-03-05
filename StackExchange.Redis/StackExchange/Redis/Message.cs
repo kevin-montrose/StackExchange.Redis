@@ -83,8 +83,8 @@ namespace StackExchange.Redis
 
         private ResultProcessor resultProcessor;
 
-        private long creationTimestamp;
-
+        protected ProfileStorage performance;
+        
         protected Message(int db, CommandFlags flags, RedisCommand command)
         {
             bool dbNeeded = Message.RequiresDatabase(command);
@@ -123,8 +123,9 @@ namespace StackExchange.Redis
             this.command = command;
             this.flags = flags & UserSelectableFlags;
 
-            // TODO: This isn't necessary if we're not profiling
-            this.creationTimestamp = System.Diagnostics.Stopwatch.GetTimestamp();
+            // TODO: Don't do this if we're not profiling
+            performance = new ProfileStorage();
+            performance.SetMessageCreated();
         }
 
         public RedisCommand Command { get { return command; } }
@@ -401,6 +402,11 @@ namespace StackExchange.Redis
 
         public bool TryComplete(bool isAsync)
         {
+            if (performance != null)
+            {
+                performance.SetResponseReceived();
+            }
+
             if (resultBox != null)
             {
                 return resultBox.TryComplete(isAsync);
@@ -545,17 +551,17 @@ namespace StackExchange.Redis
 
         internal void SetEnqueued()
         {
-            if(resultBox != null)
+            if(performance != null)
             {
-                resultBox.SetEnqueued();
+                performance.SetEnqueued();
             }
         }
 
         internal void SetRequestSent()
         {
-            if (resultBox != null)
+            if (performance != null)
             {
-                resultBox.SetRequestSent();
+                performance.SetRequestSent();
             }
         }
 
@@ -583,18 +589,12 @@ namespace StackExchange.Redis
         { // note order here reversed to prevent overload resolution errors
             this.resultBox = resultBox;
             this.resultProcessor = resultProcessor;
-
-            // TODO: Don't call this if we're not profiling
-            this.resultBox.SetMessageCreated(creationTimestamp);
         }
 
         internal void SetSource<T>(ResultBox<T> resultBox, ResultProcessor<T> resultProcessor)
         {
             this.resultBox = resultBox;
             this.resultProcessor = resultProcessor;
-
-            // TODO: Don't call this if we're not profiling
-            this.resultBox.SetMessageCreated(creationTimestamp);
         }
 
         internal abstract void WriteImpl(PhysicalConnection physical);

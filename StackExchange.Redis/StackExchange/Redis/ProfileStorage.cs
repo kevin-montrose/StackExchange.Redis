@@ -14,9 +14,9 @@ namespace StackExchange.Redis
         public long RequestSent { get; set; }
         public long ResponseReceived { get; set; }
 
-        public void SetMessageCreated(long timestamp)
+        public void SetMessageCreated()
         {
-            MessageCreated = timestamp;
+            MessageCreated = Stopwatch.GetTimestamp();
         }
 
         public void SetEnqueued()
