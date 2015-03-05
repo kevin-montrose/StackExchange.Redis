@@ -8,6 +8,7 @@ namespace StackExchange.Redis
     abstract partial class ResultBox
     {
         protected Exception exception;
+        protected ProfileStorage performance;
 
         public void SetException(Exception exception)
         {
@@ -21,6 +22,31 @@ namespace StackExchange.Redis
             //    this.exception = caught;
             //}
         }
+
+        public void SetMessageCreated(long timestamp)
+        {
+            if (performance != null)
+            {
+                performance.SetMessageCreated(timestamp);
+            }
+        }
+
+        public void SetEnqueued()
+        {
+            if (performance != null)
+            {
+                performance.SetEnqueued();
+            }
+        }
+
+        public void SetRequestSent()
+        {
+            if (performance != null)
+            {
+                performance.SetRequestSent();
+            }
+        }
+
         public abstract bool TryComplete(bool isAsync);
 
         [Conditional("DEBUG")]
@@ -42,6 +68,9 @@ namespace StackExchange.Redis
         public ResultBox(object stateOrCompletionSource)
         {
             this.stateOrCompletionSource = stateOrCompletionSource;
+            
+            // TODO: Don't do this if we aren't profiling
+            this.performance = new ProfileStorage();
         }
         public object AsyncState
         {
@@ -96,6 +125,11 @@ namespace StackExchange.Redis
 
         public override bool TryComplete(bool isAsync)
         {
+            if (this.performance != null)
+            {
+                this.performance.SetResponseReceived();
+            }
+
             if (stateOrCompletionSource is TaskCompletionSource<T>)
             {
                 var tcs = (TaskCompletionSource<T>)stateOrCompletionSource;
@@ -136,6 +170,12 @@ namespace StackExchange.Redis
         {
             value = default(T);
             exception = null;
+
+            if (this.performance != null)
+            {
+                performance.Reset();
+            }
+
             this.stateOrCompletionSource = stateOrCompletionSource;
         }
     }

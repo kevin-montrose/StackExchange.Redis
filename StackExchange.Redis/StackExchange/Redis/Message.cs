@@ -58,7 +58,6 @@ namespace StackExchange.Redis
         internal RedisServerException(string message) : base(message) { }
     }
 
-
     abstract class Message : ICompletable
     {
 
@@ -83,6 +82,8 @@ namespace StackExchange.Redis
         private ResultBox resultBox;
 
         private ResultProcessor resultProcessor;
+
+        private long creationTimestamp;
 
         protected Message(int db, CommandFlags flags, RedisCommand command)
         {
@@ -121,6 +122,9 @@ namespace StackExchange.Redis
             this.Db = db;
             this.command = command;
             this.flags = flags & UserSelectableFlags;
+
+            // TODO: This isn't necessary if we're not profiling
+            this.creationTimestamp = System.Diagnostics.Stopwatch.GetTimestamp();
         }
 
         public RedisCommand Command { get { return command; } }
@@ -539,6 +543,22 @@ namespace StackExchange.Redis
             }
         }
 
+        internal void SetEnqueued()
+        {
+            if(resultBox != null)
+            {
+                resultBox.SetEnqueued();
+            }
+        }
+
+        internal void SetRequestSent()
+        {
+            if (resultBox != null)
+            {
+                resultBox.SetRequestSent();
+            }
+        }
+
         internal void SetAsking(bool value)
         {
             if (value) flags |= AskingFlag; // the bits giveth
@@ -563,12 +583,18 @@ namespace StackExchange.Redis
         { // note order here reversed to prevent overload resolution errors
             this.resultBox = resultBox;
             this.resultProcessor = resultProcessor;
+
+            // TODO: Don't call this if we're not profiling
+            this.resultBox.SetMessageCreated(creationTimestamp);
         }
 
         internal void SetSource<T>(ResultBox<T> resultBox, ResultProcessor<T> resultProcessor)
         {
             this.resultBox = resultBox;
             this.resultProcessor = resultProcessor;
+
+            // TODO: Don't call this if we're not profiling
+            this.resultBox.SetMessageCreated(creationTimestamp);
         }
 
         internal abstract void WriteImpl(PhysicalConnection physical);
