@@ -1272,6 +1272,8 @@ namespace StackExchange.Redis
         {
             if (message == null) return;
             var box = message.ResultBox as ResultBox<T>;
+            message.SetResponseReceived();
+
             if (box != null) box.SetResult(value);            
         }
     }
