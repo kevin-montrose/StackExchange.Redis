@@ -746,6 +746,7 @@ namespace StackExchange.Redis
                 {
                     connection.Enqueue(sel);
                     sel.WriteImpl(connection);
+                    sel.SetRequestSent();
                     IncrementOpCount();
                 }
             }
@@ -772,6 +773,7 @@ namespace StackExchange.Redis
                     {
                         connection.Enqueue(readmode);
                         readmode.WriteTo(connection);
+                        readmode.SetRequestSent();
                         IncrementOpCount();
                     }
 
@@ -780,6 +782,7 @@ namespace StackExchange.Redis
                         var asking = ReusableAskingCommand;
                         connection.Enqueue(asking);
                         asking.WriteImpl(connection);
+                        asking.SetRequestSent();
                         IncrementOpCount();
                     }
                 }
