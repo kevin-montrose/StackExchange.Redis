@@ -85,8 +85,8 @@ namespace StackExchange.Redis
 
         // All for profiling purposes
         private ProfileStorage performance;
-        private DateTime createdDateTime;
-        private long createdTimestamp;
+        internal DateTime createdDateTime;
+        internal long createdTimestamp;
 
         protected Message(int db, CommandFlags flags, RedisCommand command)
         {
@@ -133,7 +133,7 @@ namespace StackExchange.Redis
         internal void SetProfileStorage(ProfileStorage storage)
         {
             performance = storage;
-            performance.SetMessageCreated(createdDateTime, createdTimestamp);
+            performance.SetMessage(this);
         }
 
         public RedisCommand Command { get { return command; } }

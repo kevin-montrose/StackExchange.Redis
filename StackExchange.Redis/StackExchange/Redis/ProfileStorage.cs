@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace StackExchange.Redis
@@ -71,28 +72,42 @@ namespace StackExchange.Redis
 
         public void SetMessage(Message msg)
         {
-            Message = msg;
-        }
+            // This method should never be called twice
+            if (Message != null) throw new InvalidOperationException();
 
-        public void SetMessageCreated(DateTime datetime, long timestamp)
-        {
-            MessageCreatedDateTime = datetime;
-            MessageCreatedTimeStamp = timestamp;
+            Message = msg;
+            MessageCreatedDateTime = msg.createdDateTime;
+            MessageCreatedTimeStamp = msg.createdTimestamp;
         }
 
         public void SetEnqueued()
         {
+            // This method should never be called twice
+            if (EnqueuedTimeStamp > 0) throw new InvalidOperationException();
+
             EnqueuedTimeStamp = Stopwatch.GetTimestamp();
         }
 
         public void SetRequestSent()
         {
+            // This method should never be called twice
+            if (RequestSentTimeStamp > 0) throw new InvalidOperationException();
+
             RequestSentTimeStamp = Stopwatch.GetTimestamp();
         }
 
         public void SetResponseReceived()
         {
-            ResponseReceivedTimeStamp = Stopwatch.GetTimestamp();
+            // this method can be called multiple times, depending on how the task completed (async vs not)
+            //   so we actually have to guard against it.
+
+            var now = Stopwatch.GetTimestamp();
+            var oldVal = Interlocked.CompareExchange(ref ResponseReceivedTimeStamp, now, 0);
+
+            // second call
+            if (oldVal != 0) return;
+
+            // only push to the EventSink on the first call
             EventSink.FinishProfiling(this);
         }
     }
