@@ -1589,8 +1589,15 @@ namespace StackExchange.Redis
                     server = null;
                 }
             }
+            
             if (server != null)
             {
+                if (profiler != null)
+                {
+                    var sink = profiler.BeginProfiling();
+                    message.SetProfileStorage(new ProfileStorage(sink, server));
+                }
+
                 if (message.Db >= 0)
                 {
                     int availableDatabases = server.Databases;
@@ -1732,6 +1739,7 @@ namespace StackExchange.Redis
             {
                 return CompletedTask<T>.Default(state);
             }
+            
             if (message.IsFireAndForget)
             {
                 TryPushMessageToBridge(message, processor, null, ref server);

@@ -83,8 +83,11 @@ namespace StackExchange.Redis
 
         private ResultProcessor resultProcessor;
 
-        protected ProfileStorage performance;
-        
+        // All for profiling purposes
+        private ProfileStorage performance;
+        private DateTime createdDateTime;
+        private long createdTimestamp;
+
         protected Message(int db, CommandFlags flags, RedisCommand command)
         {
             bool dbNeeded = Message.RequiresDatabase(command);
@@ -123,9 +126,14 @@ namespace StackExchange.Redis
             this.command = command;
             this.flags = flags & UserSelectableFlags;
 
-            // TODO: Don't do this if we're not profiling
-            performance = new ProfileStorage();
-            performance.SetMessageCreated();
+            createdDateTime = DateTime.UtcNow;
+            createdTimestamp = System.Diagnostics.Stopwatch.GetTimestamp();
+        }
+
+        internal void SetProfileStorage(ProfileStorage storage)
+        {
+            performance = storage;
+            performance.SetMessageCreated(createdDateTime, createdTimestamp);
         }
 
         public RedisCommand Command { get { return command; } }
