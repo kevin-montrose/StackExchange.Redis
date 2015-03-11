@@ -55,6 +55,11 @@ namespace StackExchange.Redis
         TimeSpan SentToResponse { get; }
 
         /// <summary>
+        /// How long between Redis responding to this command and awaiting consumers being notified.
+        /// </summary>
+        TimeSpan ResponseToCompletion { get; }
+
+        /// <summary>
         /// How long it took this redis command to be processed, from creation to deserializing the final resposne.
         /// 
         /// Note that this TimeSpan *does not* include time spent awaiting a Task in consumer code.

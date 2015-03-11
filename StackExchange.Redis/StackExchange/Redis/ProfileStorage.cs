@@ -47,9 +47,14 @@ namespace StackExchange.Redis
             get { return TimeSpan.FromTicks(ResponseReceivedTimeStamp - RequestSentTimeStamp); }
         }
 
+        public TimeSpan ResponseToCompletion
+        {
+            get { return TimeSpan.FromTicks(CompletedTimeStamp - ResponseReceivedTimeStamp); }
+        }
+
         public TimeSpan ElapsedTime
         {
-            get { return TimeSpan.FromTicks(ResponseReceivedTimeStamp - MessageCreatedTimeStamp); }
+            get { return TimeSpan.FromTicks(CompletedTimeStamp - MessageCreatedTimeStamp); }
         }
         #endregion
 
@@ -61,6 +66,7 @@ namespace StackExchange.Redis
         private long EnqueuedTimeStamp;
         private long RequestSentTimeStamp;
         private long ResponseReceivedTimeStamp;
+        private long CompletedTimeStamp;
 
         private IProfilerEventSink EventSink;
 
@@ -98,11 +104,18 @@ namespace StackExchange.Redis
 
         public void SetResponseReceived()
         {
+            if (ResponseReceivedTimeStamp > 0) throw new InvalidOperationException();
+
+            ResponseReceivedTimeStamp = Stopwatch.GetTimestamp();
+        }
+
+        public void SetCompleted()
+        {
             // this method can be called multiple times, depending on how the task completed (async vs not)
             //   so we actually have to guard against it.
 
             var now = Stopwatch.GetTimestamp();
-            var oldVal = Interlocked.CompareExchange(ref ResponseReceivedTimeStamp, now, 0);
+            var oldVal = Interlocked.CompareExchange(ref CompletedTimeStamp, now, 0);
 
             // second call
             if (oldVal != 0) return;

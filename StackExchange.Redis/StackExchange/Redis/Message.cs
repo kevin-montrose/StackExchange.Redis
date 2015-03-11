@@ -408,20 +408,32 @@ namespace StackExchange.Redis
                 resultProcessor == null ? "(n/a)" : resultProcessor.GetType().Name);
         }
 
-        public bool TryComplete(bool isAsync)
+        public void SetResponseReceived()
         {
             if (performance != null)
             {
                 performance.SetResponseReceived();
             }
+        }
 
+        public bool TryComplete(bool isAsync)
+        {
             if (resultBox != null)
             {
-                return resultBox.TryComplete(isAsync);
+                var ret = resultBox.TryComplete(isAsync);
+                if (performance != null)
+                {
+                    performance.SetCompleted();
+                }
+                return ret;
             }
             else
             {
                 ConnectionMultiplexer.TraceWithoutContext("No result-box to complete for " + Command, "Message");
+                if (performance != null)
+                {
+                    performance.SetCompleted();
+                }
                 return true;
             }
         }

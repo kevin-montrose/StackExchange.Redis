@@ -65,6 +65,7 @@ namespace StackExchange.Redis.Tests
                 Assert.IsTrue(set.CreationToEnqueued > TimeSpan.Zero);
                 Assert.IsTrue(set.EnqueuedToSending > TimeSpan.Zero);
                 Assert.IsTrue(set.SentToResponse > TimeSpan.Zero);
+                Assert.IsTrue(set.ResponseToCompletion > TimeSpan.Zero);
                 Assert.IsTrue(set.ElapsedTime > TimeSpan.Zero);
                 Assert.IsTrue(set.ElapsedTime > set.CreationToEnqueued && set.ElapsedTime > set.EnqueuedToSending && set.ElapsedTime > set.SentToResponse);
 
@@ -73,6 +74,7 @@ namespace StackExchange.Redis.Tests
                 Assert.IsTrue(get.CreationToEnqueued > TimeSpan.Zero);
                 Assert.IsTrue(get.EnqueuedToSending > TimeSpan.Zero);
                 Assert.IsTrue(get.SentToResponse > TimeSpan.Zero);
+                Assert.IsTrue(get.ResponseToCompletion > TimeSpan.Zero);
                 Assert.IsTrue(get.ElapsedTime > TimeSpan.Zero);
                 Assert.IsTrue(get.ElapsedTime > get.CreationToEnqueued && get.ElapsedTime > get.EnqueuedToSending && get.ElapsedTime > get.SentToResponse);
             }
