@@ -69,6 +69,7 @@ namespace StackExchange.Redis
         private long ResponseReceivedTimeStamp;
         private long CompletedTimeStamp;
 
+        // TODO: I'm not super in love with a ConcurrentBag here, investigate faster alternatives
         private ConcurrentBag<IProfiledCommand> PushToWhenFinished;
 
         public ProfileStorage(ConcurrentBag<IProfiledCommand> pushTo, ServerEndPoint server)
