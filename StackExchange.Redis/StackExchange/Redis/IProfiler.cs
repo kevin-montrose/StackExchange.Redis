@@ -68,37 +68,16 @@ namespace StackExchange.Redis
     }
 
     /// <summary>
-    /// In order to receive callbacks with profiling data, consumers must return an implementation
-    /// of this interface from IProfiler.BeginProfiling.
-    /// 
-    /// This class exists to allow context to be captured from the thread which *calls into* StackExchange.Redis.
-    /// 
-    /// Subsequent callers of methods on this interface can come from any thread.
-    /// </summary>
-    public interface IProfilerEventSink
-    {
-        /// <summary>
-        /// Called when a command sent to redis has completed.  Full timing information is available on 
-        /// the passed in IProfiledCommand object.
-        /// 
-        /// Note that this method can be called from any method, do not assume that the same thread
-        /// which called IProfiler.BeginProfiling will call IProfilerEventSink.FinishProfiling.
-        /// </summary>
-        void FinishProfiling(IProfiledCommand command);
-    }
-
-    /// <summary>
     /// Interface for profiling individual commands against an Redis ConnectionMulitplexer.
     /// </summary>
     public interface IProfiler
     {
         /// <summary>
-        /// Called to create an IProfilerEventSink that will be notified when a command completes.
+        /// Called to provide a context object.
         /// 
-        /// This method will always be called from the thread *calling into* StackExchange.Redis, callbacks on
-        /// the returned IProfilerEventSink can be from any thread.  If you need to capture context (such as
-        /// an HTTP request), capture it in your IProfilerEventSink.
+        /// Note that GetContext() may be called even if ConnectionMultiplexer.BeginProfiling() has not been called.
+        /// You may return `null` to prevent any tracking of commands.
         /// </summary>
-        IProfilerEventSink BeginProfiling();
+        object GetContext();
     }
 }

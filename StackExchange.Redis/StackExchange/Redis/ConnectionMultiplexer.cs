@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using Microsoft.Runtime.CompilerServices;
 #else
 using System.Runtime.CompilerServices;
+using System.Collections.Concurrent;
 #endif
 
 namespace StackExchange.Redis
@@ -1594,8 +1595,13 @@ namespace StackExchange.Redis
             {
                 if (profiler != null)
                 {
-                    var sink = profiler.BeginProfiling();
-                    message.SetProfileStorage(new ProfileStorage(sink, server));
+                    var profCtx = profiler.GetContext();
+
+                    ConcurrentBag<IProfiledCommand> inFlightForCtx;
+                    if(profCtx != null && profiledCommands.TryGetValue(profCtx, out inFlightForCtx))
+                    {
+                        message.SetProfileStorage(new ProfileStorage(inFlightForCtx, server));
+                    }
                 }
 
                 if (message.Db >= 0)

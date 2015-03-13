@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -68,11 +69,11 @@ namespace StackExchange.Redis
         private long ResponseReceivedTimeStamp;
         private long CompletedTimeStamp;
 
-        private IProfilerEventSink EventSink;
+        private ConcurrentBag<IProfiledCommand> PushToWhenFinished;
 
-        public ProfileStorage(IProfilerEventSink sink, ServerEndPoint server)
+        public ProfileStorage(ConcurrentBag<IProfiledCommand> pushTo, ServerEndPoint server)
         {
-            EventSink = sink;
+            PushToWhenFinished = pushTo;
             Server = server;
         }
 
@@ -120,8 +121,8 @@ namespace StackExchange.Redis
             // second call
             if (oldVal != 0) return;
 
-            // only push to the EventSink on the first call
-            EventSink.FinishProfiling(this);
+            // only push on the first call, no dupes!
+            PushToWhenFinished.Add(this);
         }
     }
 }
