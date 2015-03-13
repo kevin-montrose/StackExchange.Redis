@@ -37,6 +37,7 @@ namespace StackExchange.Redis
         /// </summary>
         public void BeginProfiling(object forContext)
         {
+            if (profiler == null) throw new InvalidOperationException("Cannot begin profiling if no IProfiler has been registered with RegisterProfiler");
             if (forContext == null) throw new ArgumentNullException("forContext");
             if (!profiledCommands.TryAdd(forContext, new ConcurrentBag<IProfiledCommand>()))
             {
@@ -51,6 +52,7 @@ namespace StackExchange.Redis
         /// </summary>
         public IEnumerable<IProfiledCommand> FinishProfiling(object forContext)
         {
+            if (profiler == null) throw new InvalidOperationException("Cannot begin profiling if no IProfiler has been registered with RegisterProfiler");
             if (forContext == null) throw new ArgumentNullException("forContext");
 
             ConcurrentBag<IProfiledCommand> commands;
