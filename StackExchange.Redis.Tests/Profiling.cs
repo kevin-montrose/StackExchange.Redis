@@ -123,5 +123,89 @@ namespace StackExchange.Redis.Tests
                 }
             }
         }
+
+        class TestProfiler2 : IProfiler
+        {
+            ConcurrentDictionary<int, object> Contexts = new ConcurrentDictionary<int, object>();
+
+            public void RegisterContext(object context)
+            {
+                Contexts[Thread.CurrentThread.ManagedThreadId] = context;
+            }
+
+            public object GetContext()
+            {
+                object ret;
+                if (!Contexts.TryGetValue(Thread.CurrentThread.ManagedThreadId, out ret)) ret = null;
+
+                return ret;
+            }
+        }
+
+        [Test]
+        public void ManyContexts()
+        {
+            using (var conn = Create())
+            {
+                var profiler = new TestProfiler2();
+                conn.RegisterProfiler(profiler);
+
+                var perThreadContexts = new List<object>();
+                for (var i = 0; i < 16; i++)
+                {
+                    perThreadContexts.Add(new object());
+                }
+
+                var threads = new List<Thread>();
+
+                var results = new IEnumerable<IProfiledCommand>[16];
+
+                for (var i = 0; i < 16; i++)
+                {
+                    var ix = i;
+                    var thread =
+                        new Thread(
+                            delegate()
+                            {
+                                var ctx = perThreadContexts[ix];
+                                profiler.RegisterContext(ctx);
+
+                                conn.BeginProfiling(ctx);
+                                var db = conn.GetDatabase(ix);
+
+                                var allTasks = new List<Task>();
+
+                                for (var j = 0; j < 1000; j++)
+                                {
+                                    allTasks.Add(db.StringGetAsync("hello" + ix));
+                                    allTasks.Add(db.StringSetAsync("hello" + ix, "world" + ix));
+                                }
+
+                                Task.WaitAll(allTasks.ToArray());
+
+                                results[ix] = conn.FinishProfiling(ctx);
+                            }
+                        );
+
+                    threads.Add(thread);
+                }
+
+                threads.ForEach(t => t.Start());
+                threads.ForEach(t => t.Join());
+
+                for (var i = 0; i < results.Length; i++)
+                {
+                    var res = results[i];
+                    Assert.IsNotNull(res);
+
+                    var numGets = res.Count(r => r.Command == "GET");
+                    var numSets = res.Count(r => r.Command == "SET");
+
+                    Assert.AreEqual(1000, numGets);
+                    Assert.AreEqual(1000, numSets);
+                    Assert.IsTrue(res.All(cmd => cmd.Db == i));
+                }
+            }
+        }
     }
 }

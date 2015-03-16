@@ -32,7 +32,7 @@ namespace StackExchange.Redis
         /// </summary>
         public void Add(T command)
         {
-            while(true)
+            do
             {
                 var cur = Head;
                 command.NextElement = cur;
@@ -43,7 +43,7 @@ namespace StackExchange.Redis
 #pragma warning restore 420
 
                 if (object.ReferenceEquals(got, cur)) break;
-            }
+            } while (true);
         }
 
         /// <summary>
