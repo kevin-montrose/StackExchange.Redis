@@ -14,34 +14,21 @@ namespace StackExchange.Redis
     /// 
     /// Performs better than ConcurrentBag, which is important since profiling code shouldn't impact timings.
     /// </summary>
-    sealed class ProfiledCommandCollection<T>
-        where T : class
+    sealed class ConcurrentAddOnlyBag<T>
+        where T : INextElement<T>
     {
-        sealed class Node<NodeType>
-            where NodeType : class
-        {
-            public NodeType Value;
-            public Node<NodeType> Next;
-        }
+        volatile INextElement<T> Head;
 
-        volatile Node<T> Head;
-
-        public ProfiledCommandCollection() { }
+        public ConcurrentAddOnlyBag() { }
 
         public void Add(T command)
         {
-            var newNode =
-                new Node<T>
-                {
-                    Value = command
-                };
-
             while(true)
             {
                 var cur = Head;
-                newNode.Next = cur;
+                command.NextElement = cur;
 
-                var got = Interlocked.CompareExchange(ref Head, newNode, cur);
+                var got = Interlocked.CompareExchange(ref Head, command, cur);
                 if (object.ReferenceEquals(got, cur)) break;
             }
         }
@@ -52,15 +39,22 @@ namespace StackExchange.Redis
             while(cur != null)
             {
                 yield return cur.Value;
-                cur = cur.Next;
+                cur = cur.NextElement;
             }
         }
+    }
+
+    interface INextElement<Self>
+        where Self : INextElement<Self>
+    {
+        INextElement<Self> NextElement { get; set; }
+        Self Value { get; }
     }
 
     partial class ConnectionMultiplexer
     {
         private IProfiler profiler;
-        private ConcurrentDictionary<object, ProfiledCommandCollection<IProfiledCommand>> profiledCommands;
+        private ConcurrentDictionary<object, ConcurrentAddOnlyBag<ProfileStorage>> profiledCommands;
         /// <summary>
         /// Sets an IProfiler instance for this ConnectionMultiplexer.
         /// 
@@ -74,7 +68,7 @@ namespace StackExchange.Redis
             if (this.profiler != null) throw new InvalidOperationException("IProfiler already registered for this ConnectionMultiplexer");
 
             this.profiler = profiler;
-            this.profiledCommands = new ConcurrentDictionary<object, ProfiledCommandCollection<IProfiledCommand>>();
+            this.profiledCommands = new ConcurrentDictionary<object, ConcurrentAddOnlyBag<ProfileStorage>>();
         }
 
         /// <summary>
@@ -89,7 +83,7 @@ namespace StackExchange.Redis
         {
             if (profiler == null) throw new InvalidOperationException("Cannot begin profiling if no IProfiler has been registered with RegisterProfiler");
             if (forContext == null) throw new ArgumentNullException("forContext");
-            if (!profiledCommands.TryAdd(forContext, new ProfiledCommandCollection<IProfiledCommand>()))
+            if (!profiledCommands.TryAdd(forContext, new ConcurrentAddOnlyBag<ProfileStorage>()))
             {
                 var exc = new InvalidOperationException("Attempted to begin profiling for the same context twice");
                 exc.Data["forContext"] = forContext;
@@ -105,7 +99,7 @@ namespace StackExchange.Redis
             if (profiler == null) throw new InvalidOperationException("Cannot begin profiling if no IProfiler has been registered with RegisterProfiler");
             if (forContext == null) throw new ArgumentNullException("forContext");
 
-            ProfiledCommandCollection<IProfiledCommand> commands;
+            ConcurrentAddOnlyBag<ProfileStorage> commands;
             if (!profiledCommands.TryRemove(forContext, out commands))
             {
                 var exc = new InvalidOperationException("Attempted to finish profiling for a context which is no longer valid, or was never begun");

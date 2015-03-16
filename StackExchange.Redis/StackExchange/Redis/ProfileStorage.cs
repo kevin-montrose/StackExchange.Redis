@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace StackExchange.Redis
 {
-    class ProfileStorage : IProfiledCommand
+    class ProfileStorage : IProfiledCommand, INextElement<ProfileStorage>
     {
         #region IProfiledCommand Impl
         public EndPoint EndPoint
@@ -59,6 +59,18 @@ namespace StackExchange.Redis
         }
         #endregion
 
+#region INextElement<ProfileStorage> Impl
+        public INextElement<ProfileStorage> NextElement { get; set; }
+
+        public ProfileStorage Value
+        {
+            get
+            {
+                return this;
+            }
+        }
+#endregion
+
         private Message Message;
         private ServerEndPoint Server;
 
@@ -69,9 +81,9 @@ namespace StackExchange.Redis
         private long ResponseReceivedTimeStamp;
         private long CompletedTimeStamp;
 
-        private ProfiledCommandCollection<IProfiledCommand> PushToWhenFinished;
+        private ConcurrentAddOnlyBag<ProfileStorage> PushToWhenFinished;
 
-        public ProfileStorage(ProfiledCommandCollection<IProfiledCommand> pushTo, ServerEndPoint server)
+        public ProfileStorage(ConcurrentAddOnlyBag<ProfileStorage> pushTo, ServerEndPoint server)
         {
             PushToWhenFinished = pushTo;
             Server = server;

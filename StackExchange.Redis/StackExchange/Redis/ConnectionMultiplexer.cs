@@ -1597,7 +1597,7 @@ namespace StackExchange.Redis
                 {
                     var profCtx = profiler.GetContext();
 
-                    ProfiledCommandCollection<IProfiledCommand> inFlightForCtx;
+                    ConcurrentAddOnlyBag<ProfileStorage> inFlightForCtx;
                     if(profCtx != null && profiledCommands.TryGetValue(profCtx, out inFlightForCtx))
                     {
                         message.SetProfileStorage(new ProfileStorage(inFlightForCtx, server));
