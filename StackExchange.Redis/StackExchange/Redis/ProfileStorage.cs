@@ -59,7 +59,7 @@ namespace StackExchange.Redis
         }
         #endregion
 
-#region INextElement<ProfileStorage> Impl
+        #region INextElement<ProfileStorage> Impl
         public INextElement<ProfileStorage> NextElement { get; set; }
 
         public ProfileStorage Value
@@ -69,7 +69,7 @@ namespace StackExchange.Redis
                 return this;
             }
         }
-#endregion
+        #endregion
 
         private Message Message;
         private ServerEndPoint Server;
@@ -135,6 +135,29 @@ namespace StackExchange.Redis
 
             // only push on the first call, no dupes!
             PushToWhenFinished.Add(this);
+        }
+
+        public override string ToString()
+        {
+            return
+                string.Format(
+@"EndPoint = {0}
+Db = {1}
+CommandCreated = {2:u}
+CreationToEnqueued = {3}
+EnqueuedToSending = {4}
+SentToResponse = {5}
+ResponseToCompletion = {6}
+ElapsedTime = {7}",
+                  EndPoint,
+                  Db,
+                  CommandCreated,
+                  CreationToEnqueued,
+                  EnqueuedToSending,
+                  SentToResponse,
+                  ResponseToCompletion,
+                  ElapsedTime
+                );
         }
     }
 }
