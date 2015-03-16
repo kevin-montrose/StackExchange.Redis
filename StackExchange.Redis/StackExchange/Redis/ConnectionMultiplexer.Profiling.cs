@@ -37,7 +37,11 @@ namespace StackExchange.Redis
                 var cur = Head;
                 command.NextElement = cur;
 
+                // Interlocked references to voliatle fields are perfectly cromulent
+#pragma warning disable 420
                 var got = Interlocked.CompareExchange(ref Head, command, cur);
+#pragma warning restore 420
+
                 if (object.ReferenceEquals(got, cur)) break;
             }
         }
