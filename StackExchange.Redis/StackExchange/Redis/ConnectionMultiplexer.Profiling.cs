@@ -21,6 +21,15 @@ namespace StackExchange.Redis
 
         public ConcurrentAddOnlyBag() { }
 
+        /// <summary>
+        /// This method is thread-safe.
+        /// 
+        /// Adds an element to the bag.
+        /// 
+        /// Order is not preserved.
+        /// 
+        /// The element can only be a member of *one* bag.
+        /// </summary>
         public void Add(T command)
         {
             while(true)
@@ -33,6 +42,11 @@ namespace StackExchange.Redis
             }
         }
 
+        /// <summary>
+        /// This method returns an enumerable view of the Bag.
+        /// 
+        /// It is not thread safe.  It should only be called once the bag is finished being mutated.
+        /// </summary>
         public IEnumerable<T> Enumerate()
         {
             var cur = Head;
