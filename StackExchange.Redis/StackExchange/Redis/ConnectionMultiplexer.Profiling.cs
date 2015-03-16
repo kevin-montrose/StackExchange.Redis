@@ -47,12 +47,17 @@ namespace StackExchange.Redis
         }
 
         /// <summary>
-        /// This method returns an enumerable view of the Bag.
+        /// This method returns an enumerable view of the bag.
         /// 
-        /// It is not thread safe.  It should only be called once the bag is finished being mutated.
+        /// It is not thread safe.
+        /// 
+        /// It should only be called once the bag is finished being mutated.
         /// </summary>
         public IEnumerable<T> Enumerate()
         {
+            // This is implemented as a lazy enumerable
+            //   so that there's only one, small, allocation.
+            // Turning it into a List or array feels wasteful.
             var cur = Head;
             while(cur != null)
             {
@@ -62,10 +67,23 @@ namespace StackExchange.Redis
         }
     }
 
+    /// <summary>
+    /// To avoid allocations, ConcurrentAddOnlyBag stores references for the link list
+    /// in the actual elements being linked together.
+    /// 
+    /// Implementing this interfaces allows an element to be stored in a ConcurrentAddOnlyBag
+    /// </summary>
     interface INextElement<Self>
         where Self : INextElement<Self>
     {
+        /// <summary>
+        /// Gets or sets the next element in the bag.
+        /// </summary>
         INextElement<Self> NextElement { get; set; }
+
+        /// <summary>
+        /// Typed reference to the actual value.
+        /// </summary>
         Self Value { get; }
     }
 
