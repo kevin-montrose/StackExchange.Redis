@@ -8,89 +8,10 @@ using System.Threading.Tasks;
 
 namespace StackExchange.Redis
 {
-    /// <summary>
-    /// A thread-safe collection tailored to the "always append, with high contention, then enumerate once with no contention"
-    /// behavior of our profiling.
-    /// 
-    /// Performs better than ConcurrentBag, which is important since profiling code shouldn't impact timings.
-    /// </summary>
-    sealed class ConcurrentAddOnlyBag<T>
-        where T : INextElement<T>
-    {
-        volatile INextElement<T> Head;
-
-        public ConcurrentAddOnlyBag() { }
-
-        /// <summary>
-        /// This method is thread-safe.
-        /// 
-        /// Adds an element to the bag.
-        /// 
-        /// Order is not preserved.
-        /// 
-        /// The element can only be a member of *one* bag.
-        /// </summary>
-        public void Add(T command)
-        {
-            do
-            {
-                var cur = Head;
-                command.NextElement = cur;
-
-                // Interlocked references to voliatle fields are perfectly cromulent
-#pragma warning disable 420
-                var got = Interlocked.CompareExchange(ref Head, command, cur);
-#pragma warning restore 420
-
-                if (object.ReferenceEquals(got, cur)) break;
-            } while (true);
-        }
-
-        /// <summary>
-        /// This method returns an enumerable view of the bag.
-        /// 
-        /// It is not thread safe.
-        /// 
-        /// It should only be called once the bag is finished being mutated.
-        /// </summary>
-        public IEnumerable<T> Enumerate()
-        {
-            // This is implemented as a lazy enumerable
-            //   so that there's only one, small, allocation.
-            // Turning it into a List or array feels wasteful.
-            var cur = Head;
-            while(cur != null)
-            {
-                yield return cur.Value;
-                cur = cur.NextElement;
-            }
-        }
-    }
-
-    /// <summary>
-    /// To avoid allocations, ConcurrentAddOnlyBag stores references for the link list
-    /// in the actual elements being linked together.
-    /// 
-    /// Implementing this interfaces allows an element to be stored in a ConcurrentAddOnlyBag
-    /// </summary>
-    interface INextElement<Self>
-        where Self : INextElement<Self>
-    {
-        /// <summary>
-        /// Gets or sets the next element in the bag.
-        /// </summary>
-        INextElement<Self> NextElement { get; set; }
-
-        /// <summary>
-        /// Typed reference to the actual value.
-        /// </summary>
-        Self Value { get; }
-    }
-
     partial class ConnectionMultiplexer
     {
         private IProfiler profiler;
-        private ConcurrentDictionary<object, ConcurrentAddOnlyBag<ProfileStorage>> profiledCommands;
+        private ConcurrentDictionary<object, ConcurrentIntrusiveCollection<ProfileStorage>> profiledCommands;
         /// <summary>
         /// Sets an IProfiler instance for this ConnectionMultiplexer.
         /// 
@@ -104,7 +25,7 @@ namespace StackExchange.Redis
             if (this.profiler != null) throw new InvalidOperationException("IProfiler already registered for this ConnectionMultiplexer");
 
             this.profiler = profiler;
-            this.profiledCommands = new ConcurrentDictionary<object, ConcurrentAddOnlyBag<ProfileStorage>>();
+            this.profiledCommands = new ConcurrentDictionary<object, ConcurrentIntrusiveCollection<ProfileStorage>>();
         }
 
         /// <summary>
@@ -119,7 +40,7 @@ namespace StackExchange.Redis
         {
             if (profiler == null) throw new InvalidOperationException("Cannot begin profiling if no IProfiler has been registered with RegisterProfiler");
             if (forContext == null) throw new ArgumentNullException("forContext");
-            if (!profiledCommands.TryAdd(forContext, new ConcurrentAddOnlyBag<ProfileStorage>()))
+            if (!profiledCommands.TryAdd(forContext, new ConcurrentIntrusiveCollection<ProfileStorage>()))
             {
                 var exc = new InvalidOperationException("Attempted to begin profiling for the same context twice");
                 exc.Data["forContext"] = forContext;
@@ -135,7 +56,7 @@ namespace StackExchange.Redis
             if (profiler == null) throw new InvalidOperationException("Cannot begin profiling if no IProfiler has been registered with RegisterProfiler");
             if (forContext == null) throw new ArgumentNullException("forContext");
 
-            ConcurrentAddOnlyBag<ProfileStorage> commands;
+            ConcurrentIntrusiveCollection<ProfileStorage> commands;
             if (!profiledCommands.TryRemove(forContext, out commands))
             {
                 var exc = new InvalidOperationException("Attempted to finish profiling for a context which is no longer valid, or was never begun");
