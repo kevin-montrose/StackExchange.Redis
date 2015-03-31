@@ -18,7 +18,7 @@ namespace StackExchange.Redis
         /// 
         /// This lets us detect leaks* with some reasonable confidence, and cleanup periodically.
         /// 
-        /// Some callestenics are done to avoid allocating WeakReferences for no reason, as often
+        /// Some calisthenics are done to avoid allocating WeakReferences for no reason, as often
         /// we're just looking up ProfileStorage.
         /// 
         /// * Somebody starts profiling, but for whatever reason never *stops* with a context object
@@ -129,18 +129,38 @@ namespace StackExchange.Redis
             lastCleanupSweep = DateTime.UtcNow.Ticks;
         }
 
+        /// <summary>
+        /// Registers the passed context with a collection that can be retried with subsequent calls to TryGetValue.
+        /// 
+        /// Returns false if the passed context object is already registered.
+        /// </summary>
         public bool TryCreate(object ctx)
         {
             var cell = ProfileContextCell.ToStoreUnder(ctx);
             return profiledCommands.TryAdd(cell, new ConcurrentIntrusiveCollection<ProfileStorage>());
         }
 
+        /// <summary>
+        /// Returns true and sets val to the tracking collection associated with the given context if the context
+        /// was registered with TryCreate.
+        /// 
+        /// Otherwise returns false and sets val to null.
+        /// </summary>
         public bool TryGetValue(object ctx, out ConcurrentIntrusiveCollection<ProfileStorage> val)
         {
             var cell = ProfileContextCell.ToLookupBy(ctx);
             return profiledCommands.TryGetValue(cell, out val);
         }
 
+        /// <summary>
+        /// Removes a context, setting all commands to a (non-thread safe) enumerable of
+        /// all the commands attached to that context.
+        /// 
+        /// If the context was never registered, will return false and set commands to null.
+        /// 
+        /// Subsequent calls to TryRemove with the same context will return false unless it is
+        /// re-registered with TryCreate.
+        /// </summary>
         public bool TryRemove(object ctx, out IEnumerable<IProfiledCommand> commands)
         {
             var cell = ProfileContextCell.ToLookupBy(ctx);
@@ -155,6 +175,10 @@ namespace StackExchange.Redis
             return true;
         }
 
+        /// <summary>
+        /// If enough time has passed (1 minute) since the last call, this does walk of all contexts
+        /// and removes those that the GC has collected.
+        /// </summary>
         public bool TryCleanup()
         {
             const long SweepEveryTicks = 600000000; // once a minute, tops

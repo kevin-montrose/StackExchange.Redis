@@ -236,6 +236,10 @@ namespace StackExchange.Redis.Tests
             }
         }
 
+        // This is a separate method for target=DEBUG purposes.
+        // In release builds, the runtime is smart enough to figure out
+        //   that the contexts are rootless and should be collected but in
+        //   debug builds... well, it's not very smart.
         object Initialize(ConnectionMultiplexer conn)
         {
             var profiler = new TestProfiler3();

@@ -47,16 +47,14 @@ namespace StackExchange.Redis
 
             if (!profiledCommands.TryCreate(forContext))
             {
-                var exc = new InvalidOperationException("Attempted to begin profiling for the same context twice");
-                exc.Data["forContext"] = forContext;
-                throw exc;
+                throw ExceptionFactory.BeganProfilingWithDuplicateContext(forContext);
             }
         }
 
         /// <summary>
         /// Stops profiling for the given context, returns all IProfiledCommands associated.
         /// 
-        /// By default this may do a sweep of for dead profiling contexts, you can disable this by passing "allowCleanupSweep: false".
+        /// By default this may do a sweep for dead profiling contexts, you can disable this by passing "allowCleanupSweep: false".
         /// </summary>
         public IEnumerable<IProfiledCommand> FinishProfiling(object forContext, bool allowCleanupSweep = true)
         {
@@ -66,11 +64,10 @@ namespace StackExchange.Redis
             IEnumerable<IProfiledCommand> ret;
             if (!profiledCommands.TryRemove(forContext, out ret))
             {
-                var exc = new InvalidOperationException("Attempted to finish profiling for a context which is no longer valid, or was never begun");
-                exc.Data["forContext"] = forContext;
-                throw exc;
+                throw ExceptionFactory.FinishedProfilingWithInvalidContext(forContext);
             }
 
+            // conditional, because it could hurt and that may sometimes be unacceptable
             if (allowCleanupSweep)
             {
                 profiledCommands.TryCleanup();
