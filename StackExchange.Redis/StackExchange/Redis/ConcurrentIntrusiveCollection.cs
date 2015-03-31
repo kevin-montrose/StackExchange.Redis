@@ -16,9 +16,18 @@ namespace StackExchange.Redis
     sealed class ConcurrentIntrusiveCollection<T>
         where T : IIntrusiveCollectionElement<T>
     {
+        // internal for test purposes
+        internal static int AllocationCount = 0;
+
+        // It is, by definition, impossible for an element to be in 2 intrusive collections
+        //   and we force Enumeration to release any reference to the collection object
+        //   so we can **always** pool these (by type).
+        const int PoolSize = 64;
+        static ConcurrentIntrusiveCollection<T>[] Pool = new ConcurrentIntrusiveCollection<T>[PoolSize];
+
         volatile IIntrusiveCollectionElement<T> Head;
 
-        public ConcurrentIntrusiveCollection() { }
+        private ConcurrentIntrusiveCollection() { }
 
         /// <summary>
         /// This method is thread-safe.
@@ -45,6 +54,23 @@ namespace StackExchange.Redis
             } while (true);
         }
 
+        // Seperate method to ensure that no *this* is captured with all these `yield`-shenanigans.
+        // This is not technically necessary, given a close reading of the C# guarantees... but
+        //   relying on everyone to remember that is perhaps a bit much.
+        static IEnumerable<T> MakeEnumerable(IIntrusiveCollectionElement<T> head)
+        {
+            // This is implemented as a lazy enumerable
+            //   so that there's only one, relatively small, allocation. 
+            //   (example generated class can be found here: http://csharpindepth.com/articles/chapter6/iteratorblockimplementation.aspx )
+            // Turning it into a List or array feels wasteful.
+            var cur = head;
+            while (cur != null)
+            {
+                yield return cur.Value;
+                cur = cur.NextElement;
+            }
+        }
+
         /// <summary>
         /// This method returns an enumerable view of the bag.
         /// 
@@ -52,18 +78,40 @@ namespace StackExchange.Redis
         /// 
         /// It should only be called once the bag is finished being mutated.
         /// </summary>
-        public IEnumerable<T> Enumerate()
+        public IEnumerable<T> EnumerateAndReturnForReuse()
         {
-            // This is implemented as a lazy enumerable
-            //   so that there's only one, relatively small, allocation. 
-            //   (example generated class can be found here: http://csharpindepth.com/articles/chapter6/iteratorblockimplementation.aspx )
-            // Turning it into a List or array feels wasteful.
-            var cur = Head;
-            while (cur != null)
+            var ret = MakeEnumerable(Head);
+
+            // no need for interlocking, this isn't a thread safe method
+            Head = null;
+
+            for (var i = 0; i < PoolSize; i++)
             {
-                yield return cur.Value;
-                cur = cur.NextElement;
+                if (Interlocked.CompareExchange(ref Pool[i], this, null) == null) break;
             }
+
+            return ret;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public static ConcurrentIntrusiveCollection<T> GetOrCreate()
+        {
+            ConcurrentIntrusiveCollection<T> found;
+            for (int i = 0; i < PoolSize; i++)
+            {
+                if ((found = Interlocked.Exchange(ref Pool[i], null)) != null)
+                {
+                    return found;
+                }
+            }
+
+            Interlocked.Increment(ref AllocationCount);
+            found = new ConcurrentIntrusiveCollection<T>();
+
+            return found;
         }
     }
 
@@ -71,7 +119,7 @@ namespace StackExchange.Redis
     /// To avoid allocations, ConcurrentAddOnlyBag stores references for the link list
     /// in the actual elements being linked together.
     /// 
-    /// Implementing this interfaces allows an element to be stored in a ConcurrentAddOnlyBag
+    /// Implementing this interfaces allows an element to be stored in a ConcurrentIntrusiveCollection
     /// </summary>
     interface IIntrusiveCollectionElement<Self>
         where Self : IIntrusiveCollectionElement<Self>

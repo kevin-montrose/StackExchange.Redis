@@ -154,7 +154,11 @@ namespace StackExchange.Redis
         public bool TryCreate(object ctx)
         {
             var cell = ProfileContextCell.ToStoreUnder(ctx);
-            return profiledCommands.TryAdd(cell, new ConcurrentIntrusiveCollection<ProfileStorage>());
+
+            // we can't pass this as a delegate, because TryAdd may invoke the factory multiple times,
+            //   which would lead to over allocation.
+            var storage = ConcurrentIntrusiveCollection<ProfileStorage>.GetOrCreate();
+            return profiledCommands.TryAdd(cell, storage);
         }
 
         /// <summary>
@@ -188,7 +192,7 @@ namespace StackExchange.Redis
                 return false;
             }
 
-            commands = storage.Enumerate();
+            commands = storage.EnumerateAndReturnForReuse();
             return true;
         }
 

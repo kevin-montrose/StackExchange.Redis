@@ -311,5 +311,100 @@ namespace StackExchange.Redis.Tests
                 Assert.AreEqual(0, conn.profiledCommands.ContextCount);
             }
         }
+
+        [Test]
+        public void ReuseStorage()
+        {
+            using (var conn = Create())
+            {
+                var profiler = new TestProfiler2();
+                conn.RegisterProfiler(profiler);
+
+                var perThreadContexts = new List<object>();
+                for (var i = 0; i < 16; i++)
+                {
+                    perThreadContexts.Add(new object());
+                }
+
+                var threads = new List<Thread>();
+
+                var results = new List<IEnumerable<IProfiledCommand>>[16];
+                for (var i = 0; i < 16; i++)
+                {
+                    results[i] = new List<IEnumerable<IProfiledCommand>>();
+                }
+
+                for (var i = 0; i < 16; i++)
+                {
+                    var ix = i;
+                    var thread =
+                        new Thread(
+                            delegate()
+                            {
+                                for (var k = 0; k < 10; k++)
+                                {
+                                    var ctx = perThreadContexts[ix];
+                                    profiler.RegisterContext(ctx);
+
+                                    conn.BeginProfiling(ctx);
+                                    var db = conn.GetDatabase(ix);
+
+                                    var allTasks = new List<Task>();
+
+                                    for (var j = 0; j < 1000; j++)
+                                    {
+                                        allTasks.Add(db.StringGetAsync("hello" + ix));
+                                        allTasks.Add(db.StringSetAsync("hello" + ix, "world" + ix));
+                                    }
+
+                                    Task.WaitAll(allTasks.ToArray());
+
+                                    results[ix].Add(conn.FinishProfiling(ctx));
+                                }
+                            }
+                        );
+
+                    threads.Add(thread);
+                }
+
+                threads.ForEach(t => t.Start());
+                threads.ForEach(t => t.Join());
+
+                // only 16 allocations can ever be in flight at once
+                Assert.IsTrue(ConcurrentIntrusiveCollection<ProfileStorage>.AllocationCount == 16);
+
+                // correctness check for all allocations
+                for (var i = 0; i < results.Length; i++)
+                {
+                    var resList = results[i];
+                    foreach (var res in resList)
+                    {
+                        Assert.IsNotNull(res);
+
+                        var numGets = res.Count(r => r.Command == "GET");
+                        var numSets = res.Count(r => r.Command == "SET");
+
+                        Assert.AreEqual(1000, numGets);
+                        Assert.AreEqual(1000, numSets);
+                        Assert.IsTrue(res.All(cmd => cmd.Db == i));
+                    }
+                }
+
+                // no crossed streams
+                var everything = results.SelectMany(r => r).ToList();
+                for (var i = 0; i < everything.Count; i++)
+                {
+                    for (var j = 0; j < everything.Count; j++)
+                    {
+                        if (i == j) continue;
+
+                        if (object.ReferenceEquals(everything[i], everything[j]))
+                        {
+                            Assert.Fail("Profilings were jumbled");
+                        }
+                    }
+                }
+            }
+        }
     }
 }
