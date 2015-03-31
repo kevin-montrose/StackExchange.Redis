@@ -315,6 +315,8 @@ namespace StackExchange.Redis.Tests
         [Test]
         public void ReuseStorage()
         {
+            const int ThreadCount = 16;
+
             using (var conn = Create())
             {
                 var profiler = new TestProfiler2();
@@ -334,7 +336,7 @@ namespace StackExchange.Redis.Tests
                     results[i] = new List<IEnumerable<IProfiledCommand>>();
                 }
 
-                for (var i = 0; i < 16; i++)
+                for (var i = 0; i < ThreadCount; i++)
                 {
                     var ix = i;
                     var thread =
@@ -371,7 +373,7 @@ namespace StackExchange.Redis.Tests
                 threads.ForEach(t => t.Join());
 
                 // only 16 allocations can ever be in flight at once
-                Assert.IsTrue(ConcurrentIntrusiveCollection<ProfileStorage>.AllocationCount == 16);
+                Assert.IsTrue(ConcurrentIntrusiveCollection<ProfileStorage>.AllocationCount <= ThreadCount);
 
                 // correctness check for all allocations
                 for (var i = 0; i < results.Length; i++)
