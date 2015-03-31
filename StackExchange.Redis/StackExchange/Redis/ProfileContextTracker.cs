@@ -26,8 +26,12 @@ namespace StackExchange.Redis
         struct ProfileContextCell : IEquatable<ProfileContextCell>
         {
             object HardReference;
-            WeakReference<object> WeakReference;
-            int HashCode;
+            // Foo<T> where T = object is pretty worthless... but the interface
+            //   for WeakReference<T> is much better than for WeakReference... so, yeah
+            WeakReference<object> WeakReference;    
+            
+            // It is absolutely crucial that this value **never change** once instantiated
+            readonly int HashCode;
 
             public bool IsContextLeaked
             {
@@ -54,11 +58,24 @@ namespace StackExchange.Redis
                 }
             }
 
+            /// <summary>
+            /// Suitable for use as a key into something.
+            /// 
+            /// This instance **WILL NOT** keep forObj alive, so it can
+            /// be copied out of the calling method's scope.
+            /// </summary>
             public static ProfileContextCell ToStoreUnder(object forObj)
             {
                 return new ProfileContextCell(forObj, isEphemeral: false);
             }
 
+            /// <summary>
+            /// Only suitable for looking up.
+            /// 
+            /// This instance **ABSOLUTELY WILL** keep forObj alive, so this
+            /// had better not be copied into anything outside the scope of the
+            /// calling method.
+            /// </summary>
             public static ProfileContextCell ToLookupBy(object forObj)
             {
                 return new ProfileContextCell(forObj, isEphemeral: true);
