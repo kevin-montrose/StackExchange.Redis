@@ -136,13 +136,13 @@ namespace StackExchange.Redis
         }
 
         private long lastCleanupSweep;
-        private ConcurrentDictionary<ProfileContextCell, ConcurrentIntrusiveCollection<ProfileStorage>> profiledCommands;
+        private ConcurrentDictionary<ProfileContextCell, ConcurrentProfileStorageCollection> profiledCommands;
 
         public int ContextCount { get { return profiledCommands.Count;  } }
 
         public ProfileContextTracker()
         {
-            profiledCommands = new ConcurrentDictionary<ProfileContextCell, ConcurrentIntrusiveCollection<ProfileStorage>>(ProfileContextCellComparer.Singleton);
+            profiledCommands = new ConcurrentDictionary<ProfileContextCell, ConcurrentProfileStorageCollection>(ProfileContextCellComparer.Singleton);
             lastCleanupSweep = DateTime.UtcNow.Ticks;
         }
 
@@ -157,7 +157,7 @@ namespace StackExchange.Redis
 
             // we can't pass this as a delegate, because TryAdd may invoke the factory multiple times,
             //   which would lead to over allocation.
-            var storage = ConcurrentIntrusiveCollection<ProfileStorage>.GetOrCreate();
+            var storage = ConcurrentProfileStorageCollection.GetOrCreate();
             return profiledCommands.TryAdd(cell, storage);
         }
 
@@ -167,7 +167,7 @@ namespace StackExchange.Redis
         /// 
         /// Otherwise returns false and sets val to null.
         /// </summary>
-        public bool TryGetValue(object ctx, out ConcurrentIntrusiveCollection<ProfileStorage> val)
+        public bool TryGetValue(object ctx, out ConcurrentProfileStorageCollection val)
         {
             var cell = ProfileContextCell.ToLookupBy(ctx);
             return profiledCommands.TryGetValue(cell, out val);
@@ -185,7 +185,7 @@ namespace StackExchange.Redis
         public bool TryRemove(object ctx, out IEnumerable<IProfiledCommand> commands)
         {
             var cell = ProfileContextCell.ToLookupBy(ctx);
-            ConcurrentIntrusiveCollection<ProfileStorage> storage;
+            ConcurrentProfileStorageCollection storage;
             if (!profiledCommands.TryRemove(cell, out storage))
             {
                 commands = null;
@@ -217,7 +217,7 @@ namespace StackExchange.Redis
             var allDead = profiledCommands.Keys.Where(k => k.IsContextLeaked).ToList();
             foreach (var dead in allDead)
             {
-                ConcurrentIntrusiveCollection<ProfileStorage> ignored;
+                ConcurrentProfileStorageCollection ignored;
                 profiledCommands.TryRemove(dead, out ignored);
             }
 

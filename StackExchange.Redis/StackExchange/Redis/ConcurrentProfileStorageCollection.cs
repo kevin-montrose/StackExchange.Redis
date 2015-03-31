@@ -13,8 +13,7 @@ namespace StackExchange.Redis
     /// 
     /// Performs better than ConcurrentBag, which is important since profiling code shouldn't impact timings.
     /// </summary>
-    sealed class ConcurrentIntrusiveCollection<T>
-        where T : IIntrusiveCollectionElement<T>
+    sealed class ConcurrentProfileStorageCollection
     {
         // internal for test purposes
         internal static int AllocationCount = 0;
@@ -23,11 +22,11 @@ namespace StackExchange.Redis
         //   and we force Enumeration to release any reference to the collection object
         //   so we can **always** pool these (by type).
         const int PoolSize = 64;
-        static ConcurrentIntrusiveCollection<T>[] Pool = new ConcurrentIntrusiveCollection<T>[PoolSize];
+        static ConcurrentProfileStorageCollection[] Pool = new ConcurrentProfileStorageCollection[PoolSize];
 
-        volatile IIntrusiveCollectionElement<T> Head;
+        volatile ProfileStorage Head;
 
-        private ConcurrentIntrusiveCollection() { }
+        private ConcurrentProfileStorageCollection() { }
 
         /// <summary>
         /// This method is thread-safe.
@@ -38,7 +37,7 @@ namespace StackExchange.Redis
         /// 
         /// The element can only be a member of *one* bag.
         /// </summary>
-        public void Add(T command)
+        public void Add(ProfileStorage command)
         {
             do
             {
@@ -57,7 +56,7 @@ namespace StackExchange.Redis
         // Seperate method to ensure that no *this* is captured with all these `yield`-shenanigans.
         // This is not technically necessary, given a close reading of the C# guarantees... but
         //   relying on everyone to remember that is perhaps a bit much.
-        static IEnumerable<T> MakeEnumerable(IIntrusiveCollectionElement<T> head)
+        static IEnumerable<ProfileStorage> MakeEnumerable(ProfileStorage head)
         {
             // This is implemented as a lazy enumerable
             //   so that there's only one, relatively small, allocation. 
@@ -66,7 +65,7 @@ namespace StackExchange.Redis
             var cur = head;
             while (cur != null)
             {
-                yield return cur.Value;
+                yield return cur;
                 cur = cur.NextElement;
             }
         }
@@ -78,7 +77,7 @@ namespace StackExchange.Redis
         /// 
         /// It should only be called once the bag is finished being mutated.
         /// </summary>
-        public IEnumerable<T> EnumerateAndReturnForReuse()
+        public IEnumerable<ProfileStorage> EnumerateAndReturnForReuse()
         {
             var ret = MakeEnumerable(Head);
 
@@ -97,9 +96,9 @@ namespace StackExchange.Redis
         /// 
         /// </summary>
         /// <returns></returns>
-        public static ConcurrentIntrusiveCollection<T> GetOrCreate()
+        public static ConcurrentProfileStorageCollection GetOrCreate()
         {
-            ConcurrentIntrusiveCollection<T> found;
+            ConcurrentProfileStorageCollection found;
             for (int i = 0; i < PoolSize; i++)
             {
                 if ((found = Interlocked.Exchange(ref Pool[i], null)) != null)
@@ -109,29 +108,9 @@ namespace StackExchange.Redis
             }
 
             Interlocked.Increment(ref AllocationCount);
-            found = new ConcurrentIntrusiveCollection<T>();
+            found = new ConcurrentProfileStorageCollection();
 
             return found;
         }
-    }
-
-    /// <summary>
-    /// To avoid allocations, ConcurrentAddOnlyBag stores references for the link list
-    /// in the actual elements being linked together.
-    /// 
-    /// Implementing this interfaces allows an element to be stored in a ConcurrentIntrusiveCollection
-    /// </summary>
-    interface IIntrusiveCollectionElement<Self>
-        where Self : IIntrusiveCollectionElement<Self>
-    {
-        /// <summary>
-        /// Gets or sets the next element in the bag.
-        /// </summary>
-        IIntrusiveCollectionElement<Self> NextElement { get; set; }
-
-        /// <summary>
-        /// Typed reference to the actual value.
-        /// </summary>
-        Self Value { get; }
     }
 }

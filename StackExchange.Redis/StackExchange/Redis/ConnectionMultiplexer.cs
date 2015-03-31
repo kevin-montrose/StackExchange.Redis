@@ -1599,7 +1599,7 @@ namespace StackExchange.Redis
 
                     if(profCtx != null)
                     {
-                        ConcurrentIntrusiveCollection<ProfileStorage> inFlightForCtx;
+                        ConcurrentProfileStorageCollection inFlightForCtx;
                         if (profiledCommands.TryGetValue(profCtx, out inFlightForCtx))
                         {
                             message.SetProfileStorage(new ProfileStorage(inFlightForCtx, server));

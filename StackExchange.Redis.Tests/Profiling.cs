@@ -317,6 +317,9 @@ namespace StackExchange.Redis.Tests
         {
             const int ThreadCount = 16;
 
+            // have to reset so other tests don't clober
+            ConcurrentProfileStorageCollection.AllocationCount = 0;
+
             using (var conn = Create())
             {
                 var profiler = new TestProfiler2();
@@ -373,7 +376,8 @@ namespace StackExchange.Redis.Tests
                 threads.ForEach(t => t.Join());
 
                 // only 16 allocations can ever be in flight at once
-                Assert.IsTrue(ConcurrentIntrusiveCollection<ProfileStorage>.AllocationCount <= ThreadCount);
+                var allocCount = ConcurrentProfileStorageCollection.AllocationCount;
+                Assert.IsTrue(allocCount <= ThreadCount, allocCount.ToString());
 
                 // correctness check for all allocations
                 for (var i = 0; i < results.Length; i++)
