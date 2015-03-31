@@ -240,7 +240,7 @@ namespace StackExchange.Redis.Tests
         // In release builds, the runtime is smart enough to figure out
         //   that the contexts are rootless and should be collected but in
         //   debug builds... well, it's not very smart.
-        object Initialize(ConnectionMultiplexer conn)
+        object Leaks_Initialize(ConnectionMultiplexer conn)
         {
             var profiler = new TestProfiler3();
             conn.RegisterProfiler(profiler);
@@ -299,7 +299,7 @@ namespace StackExchange.Redis.Tests
         {
             using (var conn = Create())
             {
-                var anyContext = Initialize(conn);
+                var anyContext = Leaks_Initialize(conn);
 
                 // force collection of everything but `anyContext`
                 GC.Collect(3, GCCollectionMode.Forced, blocking: true);
