@@ -1597,10 +1597,13 @@ namespace StackExchange.Redis
                 {
                     var profCtx = profiler.GetContext();
 
-                    ConcurrentIntrusiveCollection<ProfileStorage> inFlightForCtx;
-                    if(profCtx != null && profiledCommands.TryGetValue(profCtx, out inFlightForCtx))
+                    if(profCtx != null)
                     {
-                        message.SetProfileStorage(new ProfileStorage(inFlightForCtx, server));
+                        ConcurrentIntrusiveCollection<ProfileStorage> inFlightForCtx;
+                        if (profiledCommands.TryGetValue(profCtx, out inFlightForCtx))
+                        {
+                            message.SetProfileStorage(new ProfileStorage(inFlightForCtx, server));
+                        }
                     }
                 }
 

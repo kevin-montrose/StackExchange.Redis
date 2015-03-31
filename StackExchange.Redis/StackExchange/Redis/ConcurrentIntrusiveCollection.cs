@@ -55,7 +55,8 @@ namespace StackExchange.Redis
         public IEnumerable<T> Enumerate()
         {
             // This is implemented as a lazy enumerable
-            //   so that there's only one, small, allocation.
+            //   so that there's only one, relatively small, allocation. 
+            //   (example generated class can be found here: http://csharpindepth.com/articles/chapter6/iteratorblockimplementation.aspx )
             // Turning it into a List or array feels wasteful.
             var cur = Head;
             while (cur != null)

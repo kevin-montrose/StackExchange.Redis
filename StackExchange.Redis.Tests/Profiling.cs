@@ -207,5 +207,105 @@ namespace StackExchange.Redis.Tests
                 }
             }
         }
+
+        class TestProfiler3 : IProfiler
+        {
+            ConcurrentDictionary<int, object> Contexts = new ConcurrentDictionary<int, object>();
+
+            public void RegisterContext(object context)
+            {
+                Contexts[Thread.CurrentThread.ManagedThreadId] = context;
+            }
+
+            public object AnyContext()
+            {
+                return Contexts.First().Value;
+            }
+
+            public void Reset()
+            {
+                Contexts.Clear();
+            }
+
+            public object GetContext()
+            {
+                object ret;
+                if (!Contexts.TryGetValue(Thread.CurrentThread.ManagedThreadId, out ret)) ret = null;
+
+                return ret;
+            }
+        }
+
+        object Initialize(ConnectionMultiplexer conn)
+        {
+            var profiler = new TestProfiler3();
+            conn.RegisterProfiler(profiler);
+
+            var perThreadContexts = new List<object>();
+            for (var i = 0; i < 16; i++)
+            {
+                perThreadContexts.Add(new object());
+            }
+
+            var threads = new List<Thread>();
+
+            var results = new IEnumerable<IProfiledCommand>[16];
+
+            for (var i = 0; i < 16; i++)
+            {
+                var ix = i;
+                var thread =
+                    new Thread(
+                        delegate()
+                        {
+                            var ctx = perThreadContexts[ix];
+                            profiler.RegisterContext(ctx);
+
+                            conn.BeginProfiling(ctx);
+                            var db = conn.GetDatabase(ix);
+
+                            var allTasks = new List<Task>();
+
+                            for (var j = 0; j < 1000; j++)
+                            {
+                                allTasks.Add(db.StringGetAsync("hello" + ix));
+                                allTasks.Add(db.StringSetAsync("hello" + ix, "world" + ix));
+                            }
+
+                            Task.WaitAll(allTasks.ToArray());
+
+                            // intentionally leaking!
+                        }
+                    );
+
+                threads.Add(thread);
+            }
+
+            threads.ForEach(t => t.Start());
+            threads.ForEach(t => t.Join());
+
+            var anyContext = profiler.AnyContext();
+            profiler.Reset();
+
+            return anyContext;
+        }
+
+        [Test]
+        public void Leaks()
+        {
+            using (var conn = Create())
+            {
+                var anyContext = Initialize(conn);
+
+                // force collection of everything but `anyContext`
+                GC.Collect(3, GCCollectionMode.Forced, blocking: true);
+                GC.WaitForPendingFinalizers();
+
+                Thread.Sleep(TimeSpan.FromMinutes(1.01));
+                conn.FinishProfiling(anyContext);
+
+                Assert.AreEqual(0, conn.profiledCommands.ContextCount);
+            }
+        }
     }
 }

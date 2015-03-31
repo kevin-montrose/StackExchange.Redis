@@ -73,6 +73,7 @@
     <Compile Include="StackExchange\Redis\InternalErrorEventArgs.cs" />
     <Compile Include="StackExchange\Redis\IProfiler.cs" />
     <Compile Include="StackExchange\Redis\MigrateOptions.cs" />
+    <Compile Include="StackExchange\Redis\ProfileContextTracker.cs" />
     <Compile Include="StackExchange\Redis\ProfileStorage.cs" />
     <Compile Include="StackExchange\Redis\RedisChannel.cs" />
     <Compile Include="StackExchange\Redis\Bitwise.cs" />
