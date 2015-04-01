@@ -26,9 +26,8 @@ namespace StackExchange.Redis
         struct ProfileContextCell : IEquatable<ProfileContextCell>
         {
             object HardReference;
-            // Foo<T> where T = object is pretty worthless... but the interface
-            //   for WeakReference<T> is much better than for WeakReference... so, yeah
-            WeakReference<object> WeakReference;    
+            // WeakReference even though WeakReference<T> is better, because we target .NET 4.0
+            WeakReference WeakReference;    
             
             // It is absolutely crucial that this value **never change** once instantiated
             readonly int HashCode;
@@ -54,7 +53,7 @@ namespace StackExchange.Redis
                 else
                 {
                     HardReference = null;
-                    WeakReference = new WeakReference<object>(forObj, trackResurrection: true); // ughhh, have to handle finalizers
+                    WeakReference = new WeakReference(forObj, trackResurrection: true); // ughhh, have to handle finalizers
                 }
             }
 
@@ -89,7 +88,9 @@ namespace StackExchange.Redis
                     return true;
                 }
 
-                return WeakReference.TryGetTarget(out target);
+                // Do not use IsAlive here, it's race city
+                target = WeakReference.Target;
+                return target != null;
             }
 
             public override bool Equals(object obj)
