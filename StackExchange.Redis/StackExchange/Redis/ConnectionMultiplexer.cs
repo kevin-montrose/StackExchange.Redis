@@ -1834,6 +1834,8 @@ namespace StackExchange.Redis
                                 .Append(", wr=").Append(wr).Append("/").Append(wq)
                                 .Append(", in=").Append(@in).Append("/").Append(ar);
 
+                            AppendThreadPoolStats(sb);
+
                             errMessage = sb.ToString();
                             if (stormLogThreshold >= 0 && queue >= stormLogThreshold && Interlocked.CompareExchange(ref haveStormLog, 1, 0) == 0)
                             {
@@ -1854,6 +1856,27 @@ namespace StackExchange.Redis
                 Trace(message + " received " + val);
                 return val;
             }
+        }
+
+        private static void AppendThreadPoolStats(StringBuilder errorMessage)
+        {
+            //BusyThreads =  TP.GetMaxThreads() –TP.GetAVailable();
+            //If BusyThreads >= TP.GetMinThreads(), then threadpool growth throttling is possible.
+
+            int maxIoThreads, maxWorkerThreads;
+            ThreadPool.GetMaxThreads(out maxWorkerThreads, out maxIoThreads);
+
+            int freeIoThreads, freeWorkerThreads;
+            ThreadPool.GetAvailableThreads(out freeWorkerThreads, out freeIoThreads);
+
+            int minIoThreads, minWorkerThreads;
+            ThreadPool.GetMinThreads(out minWorkerThreads, out minIoThreads);
+
+            int busyIoThreads = maxIoThreads - freeIoThreads;
+            int busyWorkerThreads = maxWorkerThreads - freeWorkerThreads;
+
+            errorMessage.AppendFormat(", IOCP:(Busy={0},Min={1},Max={2})", busyIoThreads, minIoThreads, maxIoThreads);
+            errorMessage.AppendFormat(", WORKER:(Busy={0},Min={1},Max={2})", busyWorkerThreads, minWorkerThreads, maxWorkerThreads);
         }
 
         /// <summary>
