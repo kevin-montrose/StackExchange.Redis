@@ -183,13 +183,13 @@ namespace StackExchange.Redis
         /// Subsequent calls to TryRemove with the same context will return false unless it is
         /// re-registered with TryCreate.
         /// </summary>
-        public bool TryRemove(object ctx, out IEnumerable<IProfiledCommand> commands)
+        public bool TryRemove(object ctx, out ProfiledCommandEnumerable commands)
         {
             var cell = ProfileContextCell.ToLookupBy(ctx);
             ConcurrentProfileStorageCollection storage;
             if (!profiledCommands.TryRemove(cell, out storage))
             {
-                commands = null;
+                commands = default(ProfiledCommandEnumerable);
                 return false;
             }
 

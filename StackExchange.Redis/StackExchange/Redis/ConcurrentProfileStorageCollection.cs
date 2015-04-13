@@ -8,6 +8,117 @@ using System.Threading.Tasks;
 namespace StackExchange.Redis
 {
     /// <summary>
+    /// A collection of IProfiledCommands.
+    /// 
+    /// This is a very light weight data struction, only supporting enumeration.
+    /// 
+    /// While it implements IEnumerable, it there are fewer allocations if one uses
+    /// it's explicit GetEnumerator() method.  Using `foreach` does this automatically.
+    /// </summary>
+    public struct ProfiledCommandEnumerable : IEnumerable<IProfiledCommand>
+    {
+        /// <summary>
+        /// Implements IEnumerator for ProfiledCommandEnumerable.
+        /// This implementation is comparable to List.Enumerator and Dictionary.Enumerator,
+        /// and is provided to reduce allocations in the common (ie. foreach) case.
+        /// </summary>
+        public struct Enumerator : IEnumerator<IProfiledCommand>
+        {
+            ProfileStorage Head;
+            bool BeforeFirstElement;
+            ProfileStorage CurrentBacker;
+            
+            internal Enumerator(ProfileStorage head)
+            {
+                Head = head;
+                BeforeFirstElement = true;
+                CurrentBacker = null;
+            }
+
+            /// <summary>
+            /// The current element.
+            /// </summary>
+            public IProfiledCommand Current
+            {
+                get { return CurrentBacker; }
+            }
+
+            object System.Collections.IEnumerator.Current 
+            {
+                get
+                {
+                    return CurrentBacker;
+                }
+            }
+
+            /// <summary>
+            /// Advances the enumeration, returning true if there is a new element to consume and false
+            /// if enumeration is complete.
+            /// </summary>
+            public bool MoveNext()
+            {
+                if (BeforeFirstElement)
+                {
+                    CurrentBacker = Head;
+                    BeforeFirstElement = false;
+                }
+                else
+                {
+                    CurrentBacker = CurrentBacker.NextElement;
+                }
+
+                return Current != null;
+            }
+
+            /// <summary>
+            /// Resets the enumeration.
+            /// </summary>
+            public void Reset()
+            {
+                CurrentBacker = null;
+                BeforeFirstElement = true;
+            }
+
+            /// <summary>
+            /// Disposes the enumeration.
+            /// subsequent attempts to enumerate results in undefined behavior.
+            /// </summary>
+            public void Dispose()
+            {
+                CurrentBacker = Head = null;
+            }
+        }
+
+        ProfileStorage Head;
+
+        internal ProfiledCommandEnumerable(ProfileStorage head)
+        {
+            Head = head;
+        }
+
+        /// <summary>
+        /// Returns an implementor of IEnumerator that, provided it isn't accessed
+        /// though an interface, avoids allocations.
+        /// 
+        /// `foreach` will automatically use this method.
+        /// </summary>
+        public Enumerator GetEnumerator()
+        {
+            return new Enumerator(Head);
+        }
+
+        IEnumerator<IProfiledCommand> IEnumerable<IProfiledCommand>.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+    }
+
+    /// <summary>
     /// A thread-safe collection tailored to the "always append, with high contention, then enumerate once with no contention"
     /// behavior of our profiling.
     /// 
@@ -20,7 +131,7 @@ namespace StackExchange.Redis
 
         // It is, by definition, impossible for an element to be in 2 intrusive collections
         //   and we force Enumeration to release any reference to the collection object
-        //   so we can **always** pool these (by type).
+        //   so we can **always** pool these.
         const int PoolSize = 64;
         static ConcurrentProfileStorageCollection[] Pool = new ConcurrentProfileStorageCollection[PoolSize];
 
@@ -53,23 +164,6 @@ namespace StackExchange.Redis
             } while (true);
         }
 
-        // Seperate method to ensure that no *this* is captured with all these `yield`-shenanigans.
-        // This is not technically necessary, given a close reading of the C# guarantees... but
-        //   relying on everyone to remember that is perhaps a bit much.
-        static IEnumerable<ProfileStorage> MakeEnumerable(ProfileStorage head)
-        {
-            // This is implemented as a lazy enumerable
-            //   so that there's only one, relatively small, allocation. 
-            //   (example generated class can be found here: http://csharpindepth.com/articles/chapter6/iteratorblockimplementation.aspx )
-            // Turning it into a List or array feels wasteful.
-            var cur = head;
-            while (cur != null)
-            {
-                yield return cur;
-                cur = cur.NextElement;
-            }
-        }
-
         /// <summary>
         /// This method returns an enumerable view of the bag.
         /// 
@@ -77,9 +171,9 @@ namespace StackExchange.Redis
         /// 
         /// It should only be called once the bag is finished being mutated.
         /// </summary>
-        public IEnumerable<ProfileStorage> EnumerateAndReturnForReuse()
+        public ProfiledCommandEnumerable EnumerateAndReturnForReuse()
         {
-            var ret = MakeEnumerable(Head);
+            var ret = new ProfiledCommandEnumerable(Head);
 
             // no need for interlocking, this isn't a thread safe method
             Head = null;

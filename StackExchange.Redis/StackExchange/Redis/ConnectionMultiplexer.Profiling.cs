@@ -56,12 +56,12 @@ namespace StackExchange.Redis
         /// 
         /// By default this may do a sweep for dead profiling contexts, you can disable this by passing "allowCleanupSweep: false".
         /// </summary>
-        public IEnumerable<IProfiledCommand> FinishProfiling(object forContext, bool allowCleanupSweep = true)
+        public ProfiledCommandEnumerable FinishProfiling(object forContext, bool allowCleanupSweep = true)
         {
             if (profiler == null) throw new InvalidOperationException("Cannot begin profiling if no IProfiler has been registered with RegisterProfiler");
             if (forContext == null) throw new ArgumentNullException("forContext");
 
-            IEnumerable<IProfiledCommand> ret;
+            ProfiledCommandEnumerable ret;
             if (!profiledCommands.TryRemove(forContext, out ret))
             {
                 throw ExceptionFactory.FinishedProfilingWithInvalidContext(forContext);
