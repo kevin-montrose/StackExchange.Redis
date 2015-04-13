@@ -11,7 +11,7 @@ namespace StackExchange.Redis
     /// <summary>
     /// Big ol' wrapper around most of the profiling storage logic, 'cause it got too big to just live in ConnectionMultiplexer.
     /// </summary>
-    class ProfileContextTracker
+    sealed class ProfileContextTracker
     {
         /// <summary>
         /// Necessary, because WeakReference can't be readily comparable (since the reference is... weak).
@@ -119,7 +119,7 @@ namespace StackExchange.Redis
         }
 
         // provided so default behavior doesn't do any boxing, for sure
-        class ProfileContextCellComparer : IEqualityComparer<ProfileContextCell>
+        sealed class ProfileContextCellComparer : IEqualityComparer<ProfileContextCell>
         {
             public static readonly ProfileContextCellComparer Singleton = new ProfileContextCellComparer();
 

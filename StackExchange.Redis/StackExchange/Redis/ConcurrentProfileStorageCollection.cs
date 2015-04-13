@@ -23,6 +23,8 @@ namespace StackExchange.Redis
         /// Implements IEnumerator for ProfiledCommandEnumerable.
         /// This implementation is comparable to List.Enumerator and Dictionary.Enumerator,
         /// and is provided to reduce allocations in the common (ie. foreach) case.
+        /// 
+        /// This type is not threadsafe.
         /// </summary>
         public struct Enumerator : IEnumerator<IProfiledCommand>
         {
