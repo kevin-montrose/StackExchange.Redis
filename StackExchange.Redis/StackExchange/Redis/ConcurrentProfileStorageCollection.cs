@@ -10,10 +10,12 @@ namespace StackExchange.Redis
     /// <summary>
     /// A collection of IProfiledCommands.
     /// 
-    /// This is a very light weight data struction, only supporting enumeration.
+    /// This is a very light weight data structure, only supporting enumeration.
     /// 
     /// While it implements IEnumerable, it there are fewer allocations if one uses
     /// it's explicit GetEnumerator() method.  Using `foreach` does this automatically.
+    /// 
+    /// This type is not threadsafe.
     /// </summary>
     public struct ProfiledCommandEnumerable : IEnumerable<IProfiledCommand>
     {
@@ -45,10 +47,7 @@ namespace StackExchange.Redis
 
             object System.Collections.IEnumerator.Current 
             {
-                get
-                {
-                    return CurrentBacker;
-                }
+                get { return CurrentBacker; }
             }
 
             /// <summary>
@@ -187,9 +186,11 @@ namespace StackExchange.Redis
         }
 
         /// <summary>
+        /// Returns a ConcurrentProfileStorageCollection to use.
         /// 
+        /// It *may* have allocated a new one, or it may return one that has previously been released.
+        /// To return the collection, call EnumerateAndReturnForReuse()
         /// </summary>
-        /// <returns></returns>
         public static ConcurrentProfileStorageCollection GetOrCreate()
         {
             ConcurrentProfileStorageCollection found;
