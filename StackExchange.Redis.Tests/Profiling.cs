@@ -238,24 +238,24 @@ namespace StackExchange.Redis.Tests
 
         // This is a separate method for target=DEBUG purposes.
         // In release builds, the runtime is smart enough to figure out
-        //   that the contexts are rootless and should be collected but in
+        //   that the contexts are unreachable and should be collected but in
         //   debug builds... well, it's not very smart.
-        object Leaks_Initialize(ConnectionMultiplexer conn)
+        object LeaksCollectedAndRePooled_Initialize(ConnectionMultiplexer conn, int threadCount)
         {
             var profiler = new TestProfiler3();
             conn.RegisterProfiler(profiler);
 
             var perThreadContexts = new List<object>();
-            for (var i = 0; i < 16; i++)
+            for (var i = 0; i < threadCount; i++)
             {
                 perThreadContexts.Add(new object());
             }
 
             var threads = new List<Thread>();
 
-            var results = new IEnumerable<IProfiledCommand>[16];
+            var results = new IEnumerable<IProfiledCommand>[threadCount];
 
-            for (var i = 0; i < 16; i++)
+            for (var i = 0; i < threadCount; i++)
             {
                 var ix = i;
                 var thread =
@@ -295,11 +295,13 @@ namespace StackExchange.Redis.Tests
         }
 
         [Test]
-        public void Leaks()
+        public void LeaksCollectedAndRePooled()
         {
+            const int ThreadCount = 16;
+
             using (var conn = Create())
             {
-                var anyContext = Leaks_Initialize(conn);
+                var anyContext = LeaksCollectedAndRePooled_Initialize(conn, ThreadCount);
 
                 // force collection of everything but `anyContext`
                 GC.Collect(3, GCCollectionMode.Forced, blocking: true);
@@ -308,7 +310,10 @@ namespace StackExchange.Redis.Tests
                 Thread.Sleep(TimeSpan.FromMinutes(1.01));
                 conn.FinishProfiling(anyContext);
 
+                // make sure we haven't left anything in the active contexts dictionary
                 Assert.AreEqual(0, conn.profiledCommands.ContextCount);
+                Assert.AreEqual(ThreadCount, ConcurrentProfileStorageCollection.AllocationCount);
+                Assert.AreEqual(ThreadCount, ConcurrentProfileStorageCollection.CountInPool());
             }
         }
 

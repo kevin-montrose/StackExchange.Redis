@@ -218,8 +218,11 @@ namespace StackExchange.Redis
             var allDead = profiledCommands.Keys.Where(k => k.IsContextLeaked).ToList();
             foreach (var dead in allDead)
             {
-                ConcurrentProfileStorageCollection ignored;
-                profiledCommands.TryRemove(dead, out ignored);
+                ConcurrentProfileStorageCollection abandoned;
+                profiledCommands.TryRemove(dead, out abandoned);
+
+                // put it back in the pool, but don't waste time enumerating
+                abandoned.ReturnForReuse();
             }
 
             return true;

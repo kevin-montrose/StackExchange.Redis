@@ -138,6 +138,20 @@ namespace StackExchange.Redis
 
         private ConcurrentProfileStorageCollection() { }
 
+        // for testing purposes only
+        internal static int CountInPool()
+        {
+            var ret = 0;
+
+            for (var i = 0; i < PoolSize; i++)
+            {
+                var inPool = Pool[i];
+                if (inPool != null) ret++;
+            }
+
+            return ret;
+        }
+
         /// <summary>
         /// This method is thread-safe.
         /// 
@@ -164,7 +178,8 @@ namespace StackExchange.Redis
         }
 
         /// <summary>
-        /// This method returns an enumerable view of the bag.
+        /// This method returns an enumerable view of the bag, and returns it to 
+        /// an internal pool for reuse by GetOrCreate().
         /// 
         /// It is not thread safe.
         /// 
@@ -174,6 +189,16 @@ namespace StackExchange.Redis
         {
             var ret = new ProfiledCommandEnumerable(Head);
 
+            ReturnForReuse();
+
+            return ret;
+        }
+
+        /// <summary>
+        /// This returns the ConcurrentProfileStorageCollection to an internal pool for reuse by GetOrCreate().
+        /// </summary>
+        public void ReturnForReuse()
+        {
             // no need for interlocking, this isn't a thread safe method
             Head = null;
 
@@ -181,8 +206,6 @@ namespace StackExchange.Redis
             {
                 if (Interlocked.CompareExchange(ref Pool[i], this, null) == null) break;
             }
-
-            return ret;
         }
 
         /// <summary>
