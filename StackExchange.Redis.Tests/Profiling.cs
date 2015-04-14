@@ -417,5 +417,61 @@ namespace StackExchange.Redis.Tests
                 }
             }
         }
+
+        [Test]
+        public void LowAllocationEnumerable()
+        {
+            const int OuterLoop = 10000;
+
+            using(var conn = Create())
+            {
+                var profiler = new TestProfiler();
+                conn.RegisterProfiler(profiler);
+
+                conn.BeginProfiling(profiler.MyContext);
+
+                var db = conn.GetDatabase();
+
+                var allTasks = new List<Task<string>>();
+
+                foreach (var i in Enumerable.Range(0, OuterLoop))
+                {
+                    var t =
+                        db.StringSetAsync("foo" + i, "bar" + i)
+                          .ContinueWith(
+                            async _ =>
+                            {
+                                return (string)(await db.StringGetAsync("foo" + i));
+                            }
+                          );
+
+                    var finalResult = t.Unwrap();
+                    allTasks.Add(finalResult);
+                }
+
+                conn.WaitAll(allTasks.ToArray());
+
+                var res = conn.FinishProfiling(profiler.MyContext);
+                Assert.IsTrue(res.GetType().IsValueType);
+
+                using(var e = res.GetEnumerator())
+                {
+                    Assert.IsTrue(e.GetType().IsValueType);
+
+                    Assert.IsTrue(e.MoveNext());
+                    var i = e.Current;
+
+                    e.Reset();
+                    Assert.IsTrue(e.MoveNext());
+                    var j = e.Current;
+
+                    Assert.IsTrue(object.ReferenceEquals(i, j));
+                }
+
+                Assert.AreEqual(OuterLoop * 2, res.Count());
+                Assert.AreEqual(OuterLoop, res.Count(r => r.Command == "GET"));
+                Assert.AreEqual(OuterLoop, res.Count(r => r.Command == "SET"));
+            }
+        }
     }
 }

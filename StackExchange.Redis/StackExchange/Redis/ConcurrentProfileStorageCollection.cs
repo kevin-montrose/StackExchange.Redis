@@ -29,13 +29,14 @@ namespace StackExchange.Redis
         public struct Enumerator : IEnumerator<IProfiledCommand>
         {
             ProfileStorage Head;
-            bool BeforeFirstElement;
             ProfileStorage CurrentBacker;
-            
+
+            bool IsEmpty { get { return Head == null; } }
+            bool IsUnstartedOrFinished { get { return CurrentBacker == null; } }
+
             internal Enumerator(ProfileStorage head)
             {
                 Head = head;
-                BeforeFirstElement = true;
                 CurrentBacker = null;
             }
 
@@ -58,17 +59,18 @@ namespace StackExchange.Redis
             /// </summary>
             public bool MoveNext()
             {
-                if (BeforeFirstElement)
+                if (IsEmpty) return false;
+
+                if (IsUnstartedOrFinished)
                 {
                     CurrentBacker = Head;
-                    BeforeFirstElement = false;
                 }
                 else
                 {
                     CurrentBacker = CurrentBacker.NextElement;
                 }
 
-                return Current != null;
+                return CurrentBacker != null;
             }
 
             /// <summary>
@@ -77,7 +79,6 @@ namespace StackExchange.Redis
             public void Reset()
             {
                 CurrentBacker = null;
-                BeforeFirstElement = true;
             }
 
             /// <summary>
