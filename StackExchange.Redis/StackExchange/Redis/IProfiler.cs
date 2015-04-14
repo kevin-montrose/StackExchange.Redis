@@ -31,6 +31,11 @@ namespace StackExchange.Redis
         string Command { get; }
 
         /// <summary>
+        /// The CommandFlags the command was submitted with.
+        /// </summary>
+        CommandFlags Flags { get; }
+
+        /// <summary>
         /// When this command was *created*, will be approximately
         /// when the paired method of StackExchange.Redis was called but
         /// before that method returned.

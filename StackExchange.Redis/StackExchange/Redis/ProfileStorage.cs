@@ -28,6 +28,11 @@ namespace StackExchange.Redis
             get { return Message.Command.ToString(); }
         }
 
+        public CommandFlags Flags
+        {
+            get { return Message.Flags; }
+        }
+
         public DateTime CommandCreated
         {
             get { return MessageCreatedDateTime; }
