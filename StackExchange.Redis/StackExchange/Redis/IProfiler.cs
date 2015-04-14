@@ -8,7 +8,10 @@ using System.Threading.Tasks;
 namespace StackExchange.Redis
 {
     /// <summary>
-    /// A profile command against a redis instance.
+    /// A profiled command against a redis instance.
+    /// 
+    /// TimeSpans returned by this interface use a high precision timer if possible.
+    /// DateTimes returned by this interface are no more precise than DateTime.UtcNow.
     /// </summary>
     public interface IProfiledCommand
     {
@@ -31,6 +34,8 @@ namespace StackExchange.Redis
         /// When this command was *created*, will be approximately
         /// when the paired method of StackExchange.Redis was called but
         /// before that method returned.
+        /// 
+        /// Note that the resolution of the returned DateTime is limited by DateTime.UtcNow.
         /// </summary>
         DateTime CommandCreated { get; }
 
