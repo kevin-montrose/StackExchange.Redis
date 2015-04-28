@@ -67,6 +67,11 @@ namespace StackExchange.Redis
         {
             get { return OriginalProfiling; }
         }
+
+        public RetransmissionReasonType? RetransmissionReason
+        {
+            get { return Reason; }
+        }
         #endregion
 
         public ProfileStorage NextElement { get; set; }
@@ -74,6 +79,7 @@ namespace StackExchange.Redis
         private Message Message;
         private ServerEndPoint Server;
         private ProfileStorage OriginalProfiling;
+        private RetransmissionReasonType? Reason;
 
         private DateTime MessageCreatedDateTime;
         private long MessageCreatedTimeStamp;
@@ -84,21 +90,22 @@ namespace StackExchange.Redis
 
         private ConcurrentProfileStorageCollection PushToWhenFinished;
 
-        private ProfileStorage(ConcurrentProfileStorageCollection pushTo, ServerEndPoint server, ProfileStorage resentFor)
+        private ProfileStorage(ConcurrentProfileStorageCollection pushTo, ServerEndPoint server, ProfileStorage resentFor, RetransmissionReasonType? reason)
         {
             PushToWhenFinished = pushTo;
             OriginalProfiling = resentFor;
             Server = server;
+            Reason = reason;
         }
 
         public static ProfileStorage NewWithContext(ConcurrentProfileStorageCollection pushTo, ServerEndPoint server)
         {
-            return new ProfileStorage(pushTo, server, null);
+            return new ProfileStorage(pushTo, server, null, null);
         }
 
-        public static ProfileStorage NewAttachedToSameContext(ServerEndPoint server, ProfileStorage resentFor)
+        public static ProfileStorage NewAttachedToSameContext(ProfileStorage resentFor, ServerEndPoint server, bool isMoved)
         {
-            return new ProfileStorage(resentFor.PushToWhenFinished, server, resentFor);
+            return new ProfileStorage(resentFor.PushToWhenFinished, server, resentFor, isMoved ? RetransmissionReasonType.Moved : RetransmissionReasonType.Ask);
         }
 
         public void SetMessage(Message msg)

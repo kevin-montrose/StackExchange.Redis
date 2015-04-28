@@ -147,7 +147,7 @@ namespace StackExchange.Redis
 
             createdDateTime = DateTime.UtcNow;
             createdTimestamp = System.Diagnostics.Stopwatch.GetTimestamp();
-            performance = ProfileStorage.NewAttachedToSameContext(resendTo, oldPerformance);
+            performance = ProfileStorage.NewAttachedToSameContext(oldPerformance, resendTo, isMoved);
             performance.SetMessage(this);
         }
 

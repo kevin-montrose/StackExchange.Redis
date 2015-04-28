@@ -8,6 +8,20 @@ using System.Threading.Tasks;
 namespace StackExchange.Redis
 {
     /// <summary>
+    /// If an IProfiledCommand is a retransmission of a previous command, this enum
+    /// is used to indicate what prompted the retransmission.
+    /// 
+    /// This can be used to distinguish between transient causes (moving hashslots, joining nodes, etc.)
+    /// and incorrect routing.
+    /// </summary>
+    public enum RetransmissionReasonType
+    {
+        None = 0,
+        Ask,
+        Moved
+    }
+
+    /// <summary>
     /// A profiled command against a redis instance.
     /// 
     /// TimeSpans returned by this interface use a high precision timer if possible.
@@ -83,6 +97,14 @@ namespace StackExchange.Redis
         /// This can only be set if redis is configured as a cluster.
         /// </summary>
         IProfiledCommand RetransmissionOf { get; }
+
+        /// <summary>
+        /// If RetransmissionOf is not null, this property will be set to either Ask or Moved to indicate
+        /// what sort of response triggered the retransmission.
+        /// 
+        /// This can be useful for determining the root cause of extra commands.
+        /// </summary>
+        RetransmissionReasonType? RetransmissionReason { get; }
     }
 
     /// <summary>

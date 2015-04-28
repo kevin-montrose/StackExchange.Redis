@@ -580,7 +580,7 @@ namespace StackExchange.Redis.Tests
         }
 
         [Test]
-        public void AskProfiling()
+        public void MovedProfiling()
         {
             const string Key = "redirected-key";
             const string Value = "redirected-value";
@@ -652,6 +652,7 @@ namespace StackExchange.Redis.Tests
                     {
                         // imprecision of DateTime.UtcNow makes this pretty approximate
                         Assert.IsTrue(msg.RetransmissionOf.CommandCreated <= msg.CommandCreated);
+                        Assert.AreEqual(RetransmissionReasonType.Moved, msg.RetransmissionReason.Value);
                     }
                 }
             }
