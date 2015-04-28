@@ -477,5 +477,118 @@ namespace StackExchange.Redis.Tests
                 Assert.AreEqual(OuterLoop, res.Count(r => r.Command == "SET"));
             }
         }
+
+        class ToyProfiler : IProfiler
+        {
+            public ConcurrentDictionary<Thread, object> Contexts = new ConcurrentDictionary<Thread, object>();
+
+            public object GetContext()
+            {
+                object ctx;
+                if (!Contexts.TryGetValue(Thread.CurrentThread, out ctx)) ctx = null;
+
+                return ctx;
+            }
+        }
+
+        [Test]
+        public void ProfilingMD_Ex1()
+        {
+            using (var c = Create())
+            {
+                ConnectionMultiplexer conn = c;
+                var profiler = new ToyProfiler();
+                var thisGroupContext = new object();
+
+                conn.RegisterProfiler(profiler);
+
+                var threads = new List<Thread>();
+
+                for (var i = 0; i < 16; i++)
+                {
+                    var db = conn.GetDatabase(i);
+
+                    var thread =
+                        new Thread(
+                            delegate()
+                            {
+                                var threadTasks = new List<Task>();
+
+                                for (var j = 0; j < 1000; j++)
+                                {
+                                    var task = db.StringSetAsync("" + j, "" + j);
+                                    threadTasks.Add(task);
+                                }
+
+                                Task.WaitAll(threadTasks.ToArray());
+                            }
+                        );
+
+                    profiler.Contexts[thread] = thisGroupContext;
+
+                    threads.Add(thread);
+                }
+
+                conn.BeginProfiling(thisGroupContext);
+
+                threads.ForEach(thread => thread.Start());
+                threads.ForEach(thread => thread.Join());
+
+                IEnumerable<IProfiledCommand> timings = conn.FinishProfiling(thisGroupContext);
+
+                Assert.AreEqual(16000, timings.Count());
+            }
+        }
+
+        [Test]
+        public void ProfilingMD_Ex2()
+        {
+            using (var c = Create())
+            {
+                ConnectionMultiplexer conn = c;
+                var profiler = new ToyProfiler();
+
+                conn.RegisterProfiler(profiler);
+
+                var threads = new List<Thread>();
+
+                var perThreadTimings = new ConcurrentDictionary<Thread, List<IProfiledCommand>>();
+
+                for (var i = 0; i < 16; i++)
+                {
+                    var db = conn.GetDatabase(i);
+
+                    var thread =
+                        new Thread(
+                            delegate()
+                            {
+                                var threadTasks = new List<Task>();
+
+                                conn.BeginProfiling(Thread.CurrentThread);
+
+                                for (var j = 0; j < 1000; j++)
+                                {
+                                    var task = db.StringSetAsync("" + j, "" + j);
+                                    threadTasks.Add(task);
+                                }
+
+                                Task.WaitAll(threadTasks.ToArray());
+
+                                perThreadTimings[Thread.CurrentThread] = conn.FinishProfiling(Thread.CurrentThread).ToList();
+                            }
+                        );
+
+                    profiler.Contexts[thread] = thread;
+
+                    threads.Add(thread);
+                }
+                
+                threads.ForEach(thread => thread.Start());
+                threads.ForEach(thread => thread.Join());
+
+                Assert.AreEqual(16, perThreadTimings.Count);
+                Assert.IsTrue(perThreadTimings.All(kv => kv.Value.Count == 1000));
+            }
+        }
     }
 }
