@@ -134,6 +134,8 @@ namespace StackExchange.Redis
                 bool isMoved = result.AssertStarts(MOVED);
                 if (isMoved || result.AssertStarts(ASK))
                 {
+                    message.SetResponseReceived();
+
                     log = false;
                     string[] parts = result.GetString().Split(StringSplits.Space, 3);
                     int hashSlot;

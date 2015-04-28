@@ -62,12 +62,18 @@ namespace StackExchange.Redis
         {
             get { return TimeSpan.FromTicks(CompletedTimeStamp - MessageCreatedTimeStamp); }
         }
+
+        public IProfiledCommand RetransmissionOf
+        {
+            get { return OriginalProfiling; }
+        }
         #endregion
 
         public ProfileStorage NextElement { get; set; }
 
         private Message Message;
         private ServerEndPoint Server;
+        private ProfileStorage OriginalProfiling;
 
         private DateTime MessageCreatedDateTime;
         private long MessageCreatedTimeStamp;
@@ -78,10 +84,21 @@ namespace StackExchange.Redis
 
         private ConcurrentProfileStorageCollection PushToWhenFinished;
 
-        public ProfileStorage(ConcurrentProfileStorageCollection pushTo, ServerEndPoint server)
+        private ProfileStorage(ConcurrentProfileStorageCollection pushTo, ServerEndPoint server, ProfileStorage resentFor)
         {
             PushToWhenFinished = pushTo;
+            OriginalProfiling = resentFor;
             Server = server;
+        }
+
+        public static ProfileStorage NewWithContext(ConcurrentProfileStorageCollection pushTo, ServerEndPoint server)
+        {
+            return new ProfileStorage(pushTo, server, null);
+        }
+
+        public static ProfileStorage NewAttachedToSameContext(ServerEndPoint server, ProfileStorage resentFor)
+        {
+            return new ProfileStorage(resentFor.PushToWhenFinished, server, resentFor);
         }
 
         public void SetMessage(Message msg)
@@ -138,20 +155,26 @@ namespace StackExchange.Redis
                 string.Format(
 @"EndPoint = {0}
 Db = {1}
-CommandCreated = {2:u}
-CreationToEnqueued = {3}
-EnqueuedToSending = {4}
-SentToResponse = {5}
-ResponseToCompletion = {6}
-ElapsedTime = {7}",
+Command = {2}
+CommandCreated = {3:u}
+CreationToEnqueued = {4}
+EnqueuedToSending = {5}
+SentToResponse = {6}
+ResponseToCompletion = {7}
+ElapsedTime = {8}
+Flags = {9}
+RetransmissionOf = ({10})",
                   EndPoint,
                   Db,
+                  Command,
                   CommandCreated,
                   CreationToEnqueued,
                   EnqueuedToSending,
                   SentToResponse,
                   ResponseToCompletion,
-                  ElapsedTime
+                  ElapsedTime,
+                  Flags,
+                  RetransmissionOf
                 );
         }
     }

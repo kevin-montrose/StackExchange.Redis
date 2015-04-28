@@ -75,6 +75,14 @@ namespace StackExchange.Redis
         /// Note that this TimeSpan *does not* include time spent awaiting a Task in consumer code.
         /// </summary>
         TimeSpan ElapsedTime { get; }
+
+        /// <summary>
+        /// If a command has to be resent due to an ASK or MOVED response from redis (in a cluster configuration),
+        /// the second sending of the command will have this property set to the original IProfiledCommand.
+        /// 
+        /// This can only be set if redis is configured as a cluster.
+        /// </summary>
+        IProfiledCommand RetransmissionOf { get; }
     }
 
     /// <summary>

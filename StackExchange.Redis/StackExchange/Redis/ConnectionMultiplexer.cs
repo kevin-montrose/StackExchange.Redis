@@ -1602,7 +1602,7 @@ namespace StackExchange.Redis
                         ConcurrentProfileStorageCollection inFlightForCtx;
                         if (profiledCommands.TryGetValue(profCtx, out inFlightForCtx))
                         {
-                            message.SetProfileStorage(new ProfileStorage(inFlightForCtx, server));
+                            message.SetProfileStorage(ProfileStorage.NewWithContext(inFlightForCtx, server));
                         }
                     }
                 }

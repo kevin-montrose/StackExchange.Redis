@@ -136,6 +136,21 @@ namespace StackExchange.Redis
             performance.SetMessage(this);
         }
 
+        internal void PrepareToResend(ServerEndPoint resendTo, bool isMoved)
+        {
+            if (performance == null) return;
+
+            var oldPerformance = performance;
+
+            oldPerformance.SetCompleted();
+            performance = null;
+
+            createdDateTime = DateTime.UtcNow;
+            createdTimestamp = System.Diagnostics.Stopwatch.GetTimestamp();
+            performance = ProfileStorage.NewAttachedToSameContext(resendTo, oldPerformance);
+            performance.SetMessage(this);
+        }
+
         public RedisCommand Command { get { return command; } }
 
         public virtual string CommandAndKey { get { return Command.ToString(); } }
