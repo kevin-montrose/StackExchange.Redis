@@ -654,6 +654,10 @@ namespace StackExchange.Redis.Tests
                         Assert.IsTrue(msg.RetransmissionOf.CommandCreated <= msg.CommandCreated);
                         Assert.AreEqual(RetransmissionReasonType.Moved, msg.RetransmissionReason.Value);
                     }
+                    else
+                    {
+                        Assert.IsFalse(msg.RetransmissionReason.HasValue);
+                    }
                 }
             }
         }
