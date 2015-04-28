@@ -115,6 +115,9 @@ namespace StackExchange.Redis
         /// <summary>
         /// Called to provide a context object.
         /// 
+        /// This method is called before the method which triggers work against redis (such as StringSet(Async)) returns,
+        /// and will always be called on the same thread as that method.
+        /// 
         /// Note that GetContext() may be called even if ConnectionMultiplexer.BeginProfiling() has not been called.
         /// You may return `null` to prevent any tracking of commands.
         /// </summary>

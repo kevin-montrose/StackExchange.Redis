@@ -187,4 +187,4 @@ protected void Application_EndRequest()
 }
 ```
 
-This implementation will group all redis commands, including `async` ones, with the http request that initiated them.
+This implementation will group all redis commands, including `async/await`-ed ones, with the http request that initiated them.
