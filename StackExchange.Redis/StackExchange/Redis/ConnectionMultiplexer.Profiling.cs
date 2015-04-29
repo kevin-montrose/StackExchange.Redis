@@ -38,12 +38,14 @@ namespace StackExchange.Redis
         /// will be associated with each other.
         /// 
         /// Call FinishProfiling with the same context to get the assocated commands.
+        /// 
+        /// Note that forContext cannot be a WeakReference or a WeakReference&lt;T&gt;
         /// </summary>
         public void BeginProfiling(object forContext)
         {
             if (profiler == null) throw new InvalidOperationException("Cannot begin profiling if no IProfiler has been registered with RegisterProfiler");
             if (forContext == null) throw new ArgumentNullException("forContext");
-
+            if (forContext is WeakReference) throw new ArgumentException("Context object cannot be a WeakReference", "forContext");
 
             if (!profiledCommands.TryCreate(forContext))
             {

@@ -25,9 +25,10 @@ namespace StackExchange.Redis
         /// </summary>
         struct ProfileContextCell : IEquatable<ProfileContextCell>
         {
-            object HardReference;
-            // WeakReference even though WeakReference<T> is better, because we target .NET 4.0
-            WeakReference WeakReference;    
+            // This is a union of (object|WeakReference); if it's a WeakReference
+            //   then we're actually interested in it's Target, otherwise
+            //   we're concerned about the actual value of Reference
+            object Reference;
             
             // It is absolutely crucial that this value **never change** once instantiated
             readonly int HashCode;
@@ -47,13 +48,11 @@ namespace StackExchange.Redis
 
                 if (isEphemeral)
                 {
-                    HardReference = forObj;
-                    WeakReference = null;
+                    Reference = forObj;
                 }
                 else
                 {
-                    HardReference = null;
-                    WeakReference = new WeakReference(forObj, trackResurrection: true); // ughhh, have to handle finalizers
+                    Reference = new WeakReference(forObj, trackResurrection: true); // ughhh, have to handle finalizers
                 }
             }
 
@@ -82,14 +81,16 @@ namespace StackExchange.Redis
 
             bool TryGetTarget(out object target)
             {
-                if (HardReference != null)
+                var asWeakRef = Reference as WeakReference;
+
+                if (asWeakRef == null)
                 {
-                    target = HardReference;
+                    target = Reference;
                     return true;
                 }
 
                 // Do not use IsAlive here, it's race city
-                target = WeakReference.Target;
+                target = asWeakRef.Target;
                 return target != null;
             }
 
