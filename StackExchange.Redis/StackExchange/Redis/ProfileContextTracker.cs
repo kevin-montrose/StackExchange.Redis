@@ -216,14 +216,23 @@ namespace StackExchange.Redis
             var saw = Interlocked.CompareExchange(ref lastCleanupSweep, now, last);
             if (saw != last) return false;
 
-            var allDead = profiledCommands.Keys.Where(k => k.IsContextLeaked).ToList();
-            foreach (var dead in allDead)
-            {
-                ConcurrentProfileStorageCollection abandoned;
-                profiledCommands.TryRemove(dead, out abandoned);
+            if (profiledCommands.Count == 0) return false;
 
-                // put it back in the pool, but don't waste time enumerating
-                abandoned.ReturnForReuse();
+            using(var e = profiledCommands.GetEnumerator())
+            {
+                while(e.MoveNext())
+                {
+                    var pair = e.Current;
+                    if(pair.Key.IsContextLeaked)
+                    {
+                        ConcurrentProfileStorageCollection abandoned;
+                        if(profiledCommands.TryRemove(pair.Key, out abandoned))
+                        {
+                            // shove it back in the pool, but don't bother enumerating
+                            abandoned.ReturnForReuse();
+                        }
+                    }
+                }
             }
 
             return true;
