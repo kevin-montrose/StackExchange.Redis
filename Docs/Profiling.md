@@ -17,6 +17,25 @@ the `(Begin|Finish)Profiling` calls with the given context.
 
 What "context" object should be used is application specific.
 
+Available Timings
+---
+
+StackExchange.Redis exposes information about:  
+
+ - The redis server involved
+ - The redis DB being queried
+ - The redis command run
+ - The flags used to route the command
+ - The initial creation time of a command
+ - How long it took to enqueue the command
+ - How long it took to send the command, after it was enqueued
+ - How long it took the response from redis to be received, after the command was sent
+ - How long it took for the response to be processed, after it was received
+ - If the command was sent in response to a cluster ASK or MOVED response
+   - If so, what the original command was
+
+`TimeSpan`s are high resolution, if supported by the runtime.  `DateTime`s are only as precise as `DateTime.UtcNow`.
+
 Choosing Context
 ---
 
