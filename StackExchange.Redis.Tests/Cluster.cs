@@ -579,6 +579,7 @@ namespace StackExchange.Redis.Tests
             }
         }
 
+#if DEBUG
         [Test]
         public void MovedProfiling()
         {
@@ -661,5 +662,6 @@ namespace StackExchange.Redis.Tests
                 }
             }
         }
+#endif
     }
 }
